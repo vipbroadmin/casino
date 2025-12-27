@@ -1,0 +1,2972 @@
+openapi: 3.0.3
+info:
+  title: Lemon Cashback API
+  description: |
+    API документация для Lemon Cashback Frontend.
+    
+    Все эндпоинты используют базовый URL `/api`.
+    
+    ## Аутентификация
+    Большинство эндпоинтов требуют аутентификации через cookies или токены.
+    
+    ## Структура ответов
+    - Успешные ответы возвращают данные в формате, указанном в схеме
+    - Ошибки возвращаются с соответствующими HTTP статус-кодами
+    - Пагинированные ответы имеют структуру `{ items: [], total: number }`
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: /api
+    description: Базовый API сервер
+
+tags:
+  - name: Users
+    description: Управление пользователями, регистрация, авторизация, профиль
+  - name: Payments
+    description: Платежи, депозиты, выводы, транзакции
+  - name: Games
+    description: Игры, категории, избранное, сессии
+  - name: Bonus
+    description: Бонусы, уровни игроков, рейтинги
+  - name: Cashback
+    description: Кэшбэк система
+  - name: Referral
+    description: Реферальная программа и промокоды
+  - name: Wallets
+    description: Кошельки пользователей
+  - name: Winners
+    description: Победители и статистика выигрышей
+  - name: Catalog
+    description: Каталоги валют и стран
+  - name: Chat
+    description: Чат с поддержкой
+  - name: CMS
+    description: Контент-менеджмент система (новости, промо)
+  - name: Localization
+    description: Локализация и переводы
+  - name: Files
+    description: Загрузка и управление файлами
+  - name: Widget
+    description: Конфигурация виджетов
+
+paths:
+  # ============================================
+  # USERS SERVICE
+  # ============================================
+  
+  /users/players/me:
+    get:
+      tags:
+        - Users
+      summary: Получить информацию о текущем пользователе
+      description: Возвращает полную информацию о текущем аутентифицированном пользователе
+      operationId: getMe
+      responses:
+        '200':
+          description: Успешный ответ с данными пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          description: Пользователь не аутентифицирован
+        '500':
+          description: Внутренняя ошибка сервера
+
+  /users/oauth2/accounts:
+    get:
+      tags:
+        - Users
+      summary: Получить социальные аккаунты пользователя
+      description: Возвращает список подключенных социальных аккаунтов (OAuth2)
+      operationId: getUserSocialAccounts
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /users/oauth2/{provider}:
+    delete:
+      tags:
+        - Users
+      summary: Удалить социальный аккаунт
+      description: Отключает социальный аккаунт по провайдеру (google, telegram и т.д.)
+      operationId: removeUserSocialAccount
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          description: Провайдер OAuth2 (google, telegram и т.д.)
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Социальный аккаунт успешно удален
+        '401':
+          description: Пользователь не аутентифицирован
+        '404':
+          description: Социальный аккаунт не найден
+
+  /users/players/register:
+    post:
+      tags:
+        - Users
+      summary: Регистрация нового пользователя
+      description: |
+        Регистрация нового пользователя с полной валидацией.
+        Требует код подтверждения, отправленный через sendCodeRegister.
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterData'
+      responses:
+        '200':
+          description: Регистрация успешна
+        '400':
+          description: Неверный код подтверждения
+        '409':
+          description: Пользователь уже существует
+        '422':
+          description: Промокод истек или недействителен
+        '500':
+          description: Ошибка сервера
+
+  /users/players/simple-register:
+    post:
+      tags:
+        - Users
+      summary: Упрощенная регистрация
+      description: Регистрация без полной валидации
+      operationId: simpleRegister
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterData'
+      responses:
+        '200':
+          description: Регистрация успешна
+        '409':
+          description: Пользователь уже существует
+        '422':
+          description: Промокод истек
+
+  /users/players/login:
+    post:
+      tags:
+        - Users
+      summary: Вход в систему
+      description: Аутентификация пользователя по логину и паролю
+      operationId: logIn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - login
+                - password
+              properties:
+                login:
+                  type: string
+                  description: Email или телефон пользователя
+                password:
+                  type: string
+                  format: password
+                  description: Пароль пользователя
+      responses:
+        '200':
+          description: Вход успешен
+        '401':
+          description: Неверные учетные данные
+        '403':
+          description: Пользователь заблокирован
+        '500':
+          description: Ошибка сервера
+
+  /users/players/logout:
+    delete:
+      tags:
+        - Users
+      summary: Выход из системы
+      description: Завершение сессии пользователя
+      operationId: logOut
+      responses:
+        '200':
+          description: Выход выполнен успешно
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /users/players/customization:
+    put:
+      tags:
+        - Users
+      summary: Обновить настройки пользователя
+      description: Обновляет кастомизацию профиля (никнейм, аватар, валюта, страна)
+      operationId: updateUserCustomization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCustomization'
+      responses:
+        '200':
+          description: Настройки обновлены
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /users/players/addPersonalData:
+    post:
+      tags:
+        - Users
+      summary: Добавить персональные данные
+      description: Добавляет персональные данные пользователя (имя, фамилия, дата рождения, пол)
+      operationId: addPersonalData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPersonalData'
+      responses:
+        '200':
+          description: Данные добавлены
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /users/players/updateInfo:
+    put:
+      tags:
+        - Users
+      summary: Обновить информацию о пользователе
+      description: Обновляет персональные данные пользователя
+      operationId: updateUserInfo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPersonalData'
+      responses:
+        '200':
+          description: Информация обновлена
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /users/players/updateCountryCurrency:
+    put:
+      tags:
+        - Users
+      summary: Обновить страну и валюту
+      description: Обновляет страну и валюту пользователя
+      operationId: updateCountryCurrency
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCustomization'
+      responses:
+        '200':
+          description: Страна и валюта обновлены
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /users/players/resetPass:
+    post:
+      tags:
+        - Users
+      summary: Сброс пароля
+      description: |
+        Сброс пароля пользователя. Может принимать разные типы данных:
+        - UserPassword - для запроса сброса
+        - UserCode - для подтверждения сброса кодом
+        - UserCredentials - для сброса по email/телефону
+      operationId: resetPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/UserPassword'
+                - $ref: '#/components/schemas/UserCode'
+                - $ref: '#/components/schemas/UserCredentials'
+      responses:
+        '200':
+          description: Пароль успешно сброшен
+        '400':
+          description: Неверный код
+        '401':
+          description: Пользователь не найден
+        '405':
+          description: Операция не разрешена
+        '500':
+          description: Ошибка сервера
+
+  /users/players/changePass:
+    post:
+      tags:
+        - Users
+      summary: Изменить пароль
+      description: Изменение пароля для аутентифицированного пользователя
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePassword'
+      responses:
+        '200':
+          description: Пароль успешно изменен
+        '400':
+          description: Неверный текущий пароль
+        '401':
+          description: Пользователь не аутентифицирован
+        '500':
+          description: Ошибка сервера
+
+  /users/players/addCredential:
+    post:
+      tags:
+        - Users
+      summary: Добавить учетные данные
+      description: Добавление email или телефона с подтверждением кодом
+      operationId: addCredential
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/UserCredentials'
+                - $ref: '#/components/schemas/UserCode'
+      responses:
+        '200':
+          description: Учетные данные добавлены
+        '400':
+          description: Неверный код
+        '409':
+          description: Учетные данные уже существуют
+        '401':
+          description: Пользователь не аутентифицирован
+        '500':
+          description: Ошибка сервера
+
+  /users/players/sendCode/registration:
+    post:
+      tags:
+        - Users
+      summary: Отправить код для регистрации
+      description: Отправляет код подтверждения для регистрации на email или телефон
+      operationId: sendCodeRegister
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                code:
+                  type: string
+      responses:
+        '200':
+          description: Код отправлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeLength'
+        '400':
+          description: Слишком много запросов
+        '409':
+          description: Учетные данные уже существуют
+        '500':
+          description: Ошибка сервера
+
+  /users/players/sendCode/verify:
+    post:
+      tags:
+        - Users
+      summary: Отправить код для верификации
+      description: Отправляет код подтверждения для верификации email или телефона
+      operationId: sendCodeVerify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                code:
+                  type: string
+      responses:
+        '200':
+          description: Код отправлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeLength'
+        '400':
+          description: Слишком много запросов
+        '405':
+          description: Операция не разрешена
+        '409':
+          description: Учетные данные уже существуют
+        '500':
+          description: Ошибка сервера
+
+  /users/players/verifyEmail:
+    post:
+      tags:
+        - Users
+      summary: Верифицировать email
+      description: Верификация email адреса пользователя
+      operationId: sendEmailVerify
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCredentials'
+      responses:
+        '200':
+          description: Email верифицирован
+        '400':
+          description: Неверный код
+        '401':
+          description: Неверный код
+        '429':
+          description: Слишком много запросов
+        '500':
+          description: Ошибка сервера
+
+  /users/players/my-documents:
+    get:
+      tags:
+        - Users
+      summary: Получить документы пользователя
+      description: Возвращает список документов, загруженных пользователем
+      operationId: getUserDocuments
+      responses:
+        '200':
+          description: Список документов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserDocs'
+        '401':
+          description: Пользователь не аутентифицирован
+    post:
+      tags:
+        - Users
+      summary: Загрузить документ
+      description: Загружает новый документ пользователя
+      operationId: sendUserDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - url
+              properties:
+                type:
+                  type: string
+                  description: Тип документа
+                url:
+                  type: string
+                  format: uri
+                  description: URL загруженного файла
+      responses:
+        '200':
+          description: Документ загружен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDocs'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /users/players/{playerId}/document/{documentId}:
+    delete:
+      tags:
+        - Users
+      summary: Удалить документ
+      description: Удаляет документ пользователя
+      operationId: removeUserDocument
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Документ удален
+        '401':
+          description: Пользователь не аутентифицирован
+        '404':
+          description: Документ не найден
+
+  /users/partners:
+    get:
+      tags:
+        - Users
+      summary: Получить партнерскую ссылку
+      description: Получает партнерскую ссылку на основе query параметров
+      operationId: getPartners
+      parameters:
+        - name: pp_id
+          in: query
+          schema:
+            type: string
+        - name: pp_name
+          in: query
+          schema:
+            type: string
+        - name: click_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Партнерская ссылка
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /users/players/integration/token:
+    get:
+      tags:
+        - Users
+      summary: Получить JWT токен для интеграции
+      description: Получает JWT токен для интеграции с внешними системами
+      operationId: getIntegrationJWT
+      responses:
+        '200':
+          description: JWT токен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT токен для интеграции
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # PAYMENTS SERVICE
+  # ============================================
+
+  /finances/payment-systems:
+    get:
+      tags:
+        - Payments
+      summary: Получить платежные системы
+      description: Возвращает список доступных платежных систем для депозита или вывода
+      operationId: getPaymentSystems
+      parameters:
+        - name: currency
+          in: query
+          required: true
+          description: Символ валюты (USD, EUR, RUB и т.д.)
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Тип платежной системы (INPUT или OUTPUT)
+          schema:
+            type: string
+            default: INPUT
+      responses:
+        '200':
+          description: Список платежных систем
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /finances/deposits/payment-methods:
+    get:
+      tags:
+        - Payments
+      summary: Получить методы оплаты для депозита
+      description: Возвращает доступные методы оплаты для пополнения счета
+      operationId: getPaymentMethodsDeposit
+      parameters:
+        - name: currency
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Список методов оплаты
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentMethod'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /finances/withdrawals/withdrawal-methods:
+    get:
+      tags:
+        - Payments
+      summary: Получить методы вывода средств
+      description: Возвращает доступные методы для вывода средств
+      operationId: getPaymentMethodsWithdrawal
+      parameters:
+        - name: currency
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Список методов вывода
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/WithdrawalMethod'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /finances/transactions:
+    get:
+      tags:
+        - Payments
+      summary: Получить транзакции
+      description: |
+        Возвращает список транзакций пользователя.
+        По умолчанию включает события: WITHDRAWAL, DEPOSIT, BONUS_ACCRUE, BONUS_REVOKE, REFUND
+      operationId: getTransactions
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Смещение для пагинации
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: Количество элементов на странице
+        - name: event
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: Фильтр по типам событий
+      responses:
+        '200':
+          description: Список транзакций
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Transaction'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /finances/deposits/request:
+    post:
+      tags:
+        - Payments
+      summary: Создать запрос на депозит
+      description: Создает запрос на пополнение счета и возвращает URL для оплаты
+      operationId: deposit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepositRequestBody'
+      responses:
+        '200':
+          description: Запрос создан, возвращается URL для оплаты
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    description: URL для перенаправления на страницу оплаты
+        '401':
+          description: Пользователь не аутентифицирован
+        '400':
+          description: Неверные данные запроса
+
+  /finances/withdrawals/request:
+    post:
+      tags:
+        - Payments
+      summary: Создать запрос на вывод средств
+      description: Создает запрос на вывод средств со счета
+      operationId: withdraw
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawRequestBody'
+      responses:
+        '200':
+          description: Запрос на вывод создан
+        '401':
+          description: Пользователь не аутентифицирован
+        '400':
+          description: Неверные данные запроса
+
+  # ============================================
+  # GAMES SERVICE
+  # ============================================
+
+  /games/play/initGame:
+    post:
+      tags:
+        - Games
+      summary: Инициализировать игру
+      description: Инициализирует игровую сессию для реальной игры
+      operationId: initGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - gameId
+                - currency
+              properties:
+                gameId:
+                  type: string
+                  description: ID игры
+                currency:
+                  type: string
+                  description: Валюта для игры
+      responses:
+        '200':
+          description: Игра инициализирована
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/play/initDemo:
+    post:
+      tags:
+        - Games
+      summary: Инициализировать демо-игру
+      description: Инициализирует демо-сессию игры без реальных ставок
+      operationId: initDemoGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - gameId
+              properties:
+                gameId:
+                  type: string
+                  description: ID игры
+      responses:
+        '200':
+          description: Демо-игра инициализирована
+
+  /games/play/deposit:
+    post:
+      tags:
+        - Games
+      summary: Пополнить игровую сессию
+      description: Пополняет баланс активной игровой сессии
+      operationId: depositSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+                - amount
+              properties:
+                sessionId:
+                  type: string
+                  description: ID игровой сессии
+                amount:
+                  type: number
+                  description: Сумма пополнения
+      responses:
+        '200':
+          description: Сессия пополнена
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/games/list:
+    get:
+      tags:
+        - Games
+      summary: Получить список игр с фильтрацией
+      description: Возвращает список игр с возможностью фильтрации и сортировки
+      operationId: getGamesList
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: isMobile
+          in: query
+          schema:
+            type: boolean
+        - name: sessionBalance
+          in: query
+          schema:
+            type: boolean
+        - name: name
+          in: query
+          schema:
+            type: string
+          description: Поиск по названию
+        - name: vendors
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: categories
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, created_at]
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200':
+          description: Список игр
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Games'
+                  limit:
+                    type: number
+                  offset:
+                    type: number
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/games:
+    get:
+      tags:
+        - Games
+      summary: Получить игры
+      description: Возвращает список игр по типу
+      operationId: getGames
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Список игр
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Games'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/games/{gameId}:
+    get:
+      tags:
+        - Games
+      summary: Получить игру по ID
+      description: Возвращает детальную информацию об игре
+      operationId: getGameById
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Информация об игре
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Games'
+        '404':
+          description: Игра не найдена
+
+  /games/categories/games:
+    get:
+      tags:
+        - Games
+      summary: Получить игры по категориям
+      description: Возвращает игры, сгруппированные по категориям
+      operationId: getGamesByCategory
+      responses:
+        '200':
+          description: Игры по категориям
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GamesByCategory'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/categories:
+    get:
+      tags:
+        - Games
+      summary: Получить категории игр
+      description: Возвращает список всех категорий игр
+      operationId: getCategories
+      responses:
+        '200':
+          description: Список категорий
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/tags:
+    get:
+      tags:
+        - Games
+      summary: Получить теги игр
+      description: Возвращает список всех тегов для игр
+      operationId: getTags
+      responses:
+        '200':
+          description: Список тегов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/vendors:
+    get:
+      tags:
+        - Games
+      summary: Получить провайдеров игр
+      description: Возвращает список всех провайдеров (вендоров) игр
+      operationId: getVendors
+      responses:
+        '200':
+          description: Список провайдеров
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: string
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/favorites:
+    get:
+      tags:
+        - Games
+      summary: Получить избранные игры
+      description: Возвращает список избранных игр пользователя
+      operationId: getFavorites
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Список избранных игр
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Games'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/favorites/{gameId}:
+    put:
+      tags:
+        - Games
+      summary: Добавить игру в избранное
+      description: Добавляет игру в список избранных
+      operationId: addGameToFavorites
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Игра добавлена в избранное
+        '401':
+          description: Пользователь не аутентифицирован
+    delete:
+      tags:
+        - Games
+      summary: Удалить игру из избранного
+      description: Удаляет игру из списка избранных
+      operationId: removeGameToFavorites
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Игра удалена из избранного
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /games/play/playedGames:
+    get:
+      tags:
+        - Games
+      summary: Получить недавно сыгранные игры
+      description: Возвращает список недавно сыгранных игр пользователя
+      operationId: getRecentlyPlayed
+      responses:
+        '200':
+          description: Список недавно сыгранных игр
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # BONUS SERVICE
+  # ============================================
+
+  /bonus/player/levels:
+    get:
+      tags:
+        - Bonus
+      summary: Получить уровни игроков
+      description: Возвращает список всех уровней системы лояльности
+      operationId: getLevels
+      responses:
+        '200':
+          description: Список уровней
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlayerLevel'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /bonus/player/rank:
+    get:
+      tags:
+        - Bonus
+      summary: Получить ранг игрока
+      description: Возвращает текущий ранг и прогресс игрока
+      operationId: getPlayerRank
+      responses:
+        '200':
+          description: Ранг игрока
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerRank'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /bonus/player/bonuses:
+    get:
+      tags:
+        - Bonus
+      summary: Получить бонусы игрока
+      description: Возвращает список бонусов игрока с фильтрацией по статусу
+      operationId: getPlayerBonuses
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+          description: Статусы бонусов для фильтрации
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Список бонусов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bonus'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /bonus/player/bonuses/{id}/activate:
+    post:
+      tags:
+        - Bonus
+      summary: Активировать бонус
+      description: Активирует бонус по его ID
+      operationId: activateBonus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID бонуса
+      responses:
+        '200':
+          description: Бонус активирован
+        '401':
+          description: Пользователь не аутентифицирован
+        '400':
+          description: Бонус не может быть активирован
+
+  # ============================================
+  # CASHBACK SERVICE
+  # ============================================
+
+  /cashback/precashback:
+    get:
+      tags:
+        - Cashback
+      summary: Получить предварительный кэшбэк
+      description: Возвращает информацию о предварительном кэшбэке пользователя
+      operationId: getCashback
+      responses:
+        '200':
+          description: Информация о кэшбэке
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreCashback'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # REFERRAL PROGRAM SERVICE
+  # ============================================
+
+  /bonus/promo:
+    get:
+      tags:
+        - Referral
+      summary: Получить промокоды
+      description: Возвращает список промокодов пользователя
+      operationId: getPromoCodes
+      responses:
+        '200':
+          description: Список промокодов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PromoCodesItem'
+        '401':
+          description: Пользователь не аутентифицирован
+    post:
+      tags:
+        - Referral
+      summary: Создать промокод
+      description: Создает новый промокод для реферальной программы
+      operationId: createPromoCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoCode'
+      responses:
+        '200':
+          description: Промокод создан
+        '401':
+          description: Пользователь не найден
+        '500':
+          description: Ошибка сервера
+
+  /bffcasino/promocodes:
+    get:
+      tags:
+        - Referral
+      summary: Получить статистику промокодов
+      description: Возвращает статистику использования промокодов по ID пользователя
+      operationId: getPromoCodesStatistics
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Статистика промокодов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  promocodes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PromoCodesStatistic'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # WALLETS SERVICE
+  # ============================================
+
+  /finances/wallets/by-user-id/{id}:
+    get:
+      tags:
+        - Wallets
+      summary: Получить кошельки пользователя
+      description: Возвращает список кошельков пользователя по его ID
+      operationId: getWallets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID пользователя
+      responses:
+        '200':
+          description: Список кошельков
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /accounts/add_to_user:
+    post:
+      tags:
+        - Wallets
+      summary: Добавить кошелек пользователю
+      description: Добавляет новый кошелек пользователю
+      operationId: addWallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Кошелек добавлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /accounts/set_default_user_account:
+    post:
+      tags:
+        - Wallets
+      summary: Установить кошелек по умолчанию
+      description: Устанавливает кошелек по умолчанию для пользователя
+      operationId: setDefaultWallet
+      responses:
+        '200':
+          description: Кошелек по умолчанию установлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # WINNERS SERVICE
+  # ============================================
+
+  /winners/topWinnersByCurrency/{currency}:
+    get:
+      tags:
+        - Winners
+      summary: Получить топ победителей по валюте
+      description: Возвращает список топ победителей по указанной валюте
+      operationId: getTopWinnersByCurrency
+      parameters:
+        - name: currency
+          in: path
+          required: false
+          schema:
+            type: string
+          description: Символ валюты (опционально)
+      responses:
+        '200':
+          description: Список топ победителей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Wins'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /winners/lastWinnersByCurrency/{currency}:
+    get:
+      tags:
+        - Winners
+      summary: Получить последних победителей по валюте
+      description: Возвращает список последних победителей по указанной валюте
+      operationId: getLastWinnersByCurrency
+      parameters:
+        - name: currency
+          in: path
+          required: false
+          schema:
+            type: string
+          description: Символ валюты (опционально)
+      responses:
+        '200':
+          description: Список последних победителей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Wins'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # CATALOG SERVICE
+  # ============================================
+
+  /catalogs/currency:
+    get:
+      tags:
+        - Catalog
+      summary: Получить доступные валюты
+      description: Возвращает список доступных валют в системе
+      operationId: getAvailableCurrencies
+      responses:
+        '200':
+          description: Список валют
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserCode'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /catalogs/country:
+    get:
+      tags:
+        - Catalog
+      summary: Получить доступные страны
+      description: Возвращает список доступных стран в системе
+      operationId: getAvailableCountries
+      responses:
+        '200':
+          description: Список стран
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Country'
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # CHAT SERVICE
+  # ============================================
+
+  /chat/messages:
+    get:
+      tags:
+        - Chat
+      summary: Получить сообщения чата
+      description: Возвращает список сообщений из чата поддержки
+      operationId: getMessages
+      responses:
+        '200':
+          description: Список сообщений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Message'
+        '401':
+          description: Пользователь не аутентифицирован
+    post:
+      tags:
+        - Chat
+      summary: Отправить сообщение в чат
+      description: Отправляет новое сообщение в чат поддержки
+      operationId: sendMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  description: Текст сообщения
+      responses:
+        '200':
+          description: Сообщение отправлено
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /chat/v2/permissions:
+    get:
+      tags:
+        - Chat
+      summary: Получить права на отправку сообщений
+      description: Проверяет, может ли пользователь отправлять сообщения в чат
+      operationId: getPermissions
+      responses:
+        '200':
+          description: Права на отправку сообщений
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isPermittedToSendMessages:
+                    type: boolean
+                    description: Разрешено ли отправлять сообщения
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # CMS SERVICE
+  # ============================================
+
+  /cms/main-promo:
+    get:
+      tags:
+        - CMS
+      summary: Получить список главных промо
+      description: Возвращает список главных промо-акций для отображения на главной странице
+      operationId: getMainPromoList
+      responses:
+        '200':
+          description: Список промо
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MainPromo'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /cms/news:
+    get:
+      tags:
+        - CMS
+      summary: Получить список новостей
+      description: Возвращает список всех новостей
+      operationId: getNews
+      responses:
+        '200':
+          description: Список новостей
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/News'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /cms/news/{id}:
+    get:
+      tags:
+        - CMS
+      summary: Получить новость по ID
+      description: Возвращает детальную информацию о новости
+      operationId: getNewsById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Информация о новости
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/News'
+        '404':
+          description: Новость не найдена
+
+  # ============================================
+  # LOCALIZATION SERVICE
+  # ============================================
+
+  /i18n/languages:
+    get:
+      tags:
+        - Localization
+      summary: Получить список языков
+      description: Возвращает список доступных языков в системе
+      operationId: getLanguages
+      responses:
+        '200':
+          description: Список языков
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Language'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  /i18n/v2/translations:
+    get:
+      tags:
+        - Localization
+      summary: Получить переводы
+      description: Возвращает все переводы для локализации интерфейса
+      operationId: getTranslations
+      responses:
+        '200':
+          description: Список переводов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Translation'
+                  total:
+                    type: number
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # FILES SERVICE
+  # ============================================
+
+  /files:
+    get:
+      tags:
+        - Files
+      summary: Получить файл
+      description: Получает информацию о файле
+      operationId: getFile
+      responses:
+        '200':
+          description: Информация о файле
+        '401':
+          description: Пользователь не аутентифицирован
+    post:
+      tags:
+        - Files
+      summary: Загрузить файл
+      description: Загружает файл на сервер
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Файл загружен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                    description: Имя загруженного файла
+        '401':
+          description: Пользователь не аутентифицирован
+
+  # ============================================
+  # WIDGET SERVICE
+  # ============================================
+
+  /widgets/main/config:
+    get:
+      tags:
+        - Widget
+      summary: Получить конфигурацию приложения
+      description: Возвращает конфигурацию виджетов и настроек приложения
+      operationId: getAppConfig
+      responses:
+        '200':
+          description: Конфигурация приложения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppConfig'
+        '401':
+          description: Пользователь не аутентифицирован
+
+components:
+  schemas:
+    # User Schemas
+    UserCustomization:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: Валюта пользователя
+        country:
+          type: string
+          description: Страна пользователя
+        nickname:
+          type: string
+          description: Никнейм пользователя
+        avatarUrl:
+          type: string
+          format: uri
+          description: URL аватара пользователя
+      description: Настройки кастомизации пользователя
+
+    UserPersonalData:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Имя пользователя
+        surname:
+          type: string
+          description: Фамилия пользователя
+        birthdate:
+          type: integer
+          nullable: true
+          description: Дата рождения в формате timestamp
+        birthdateString:
+          type: string
+          description: Дата рождения в строковом формате
+        sex:
+          type: string
+          description: Пол пользователя
+      description: Персональные данные пользователя
+
+    UserCredentials:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email адрес
+        phone:
+          type: string
+          description: Номер телефона
+      description: Учетные данные пользователя (email или телефон)
+
+    UserPassword:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          format: password
+          description: Пароль пользователя
+      description: Пароль пользователя
+
+    ChangePassword:
+      type: object
+      required:
+        - password
+        - newPassword
+      properties:
+        password:
+          type: string
+          format: password
+          description: Текущий пароль
+        newPassword:
+          type: string
+          format: password
+          description: Новый пароль
+      description: Данные для смены пароля
+
+    UserCode:
+      type: object
+      required:
+        - code
+      properties:
+        code:
+          type: string
+          description: Код подтверждения
+      description: Код подтверждения
+
+    UserRegisterData:
+      type: object
+      required:
+        - email
+        - phone
+        - code
+        - currency
+        - country
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email адрес
+        phone:
+          type: string
+          description: Номер телефона
+        code:
+          type: string
+          description: Код подтверждения
+        currency:
+          type: string
+          description: Валюта пользователя
+        country:
+          type: string
+          description: Страна пользователя
+        password:
+          type: string
+          format: password
+          description: Пароль пользователя
+        promoCode:
+          type: string
+          description: Промокод (опционально)
+        recaptchaToken:
+          type: string
+          description: Токен reCAPTCHA
+      description: Данные для регистрации пользователя
+
+    UserPermissions:
+      type: object
+      properties:
+        chat:
+          type: boolean
+          description: Доступ к чату
+        bonuses:
+          type: boolean
+          description: Доступ к бонусам
+        tournaments:
+          type: boolean
+          description: Доступ к турнирам
+        coinCashout:
+          type: boolean
+          description: Возможность вывода монет
+      description: Права доступа пользователя
+
+    Me:
+      allOf:
+        - type: object
+          properties:
+            id:
+              type: string
+              description: ID пользователя
+            country:
+              type: string
+              description: Страна пользователя
+            disableLogout:
+              type: boolean
+              description: Запрещен ли выход
+            isOffline:
+              type: boolean
+              description: Офлайн режим
+            level:
+              type: number
+              description: Уровень пользователя
+            coins:
+              type: number
+              description: Количество монет
+            supportLevel:
+              type: string
+              description: Уровень поддержки
+            permissions:
+              $ref: '#/components/schemas/UserPermissions'
+            isEmailVerified:
+              type: boolean
+              description: Верифицирован ли email
+            isPasswordReset:
+              type: boolean
+              description: Был ли сброшен пароль
+        - $ref: '#/components/schemas/UserPersonalData'
+        - $ref: '#/components/schemas/UserCustomization'
+        - $ref: '#/components/schemas/UserCredentials'
+      description: Полная информация о пользователе
+
+    UserDocs:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID документа
+        playerId:
+          type: string
+          description: ID игрока
+        type:
+          type: string
+          description: Тип документа
+        url:
+          type: string
+          format: uri
+          description: URL документа
+        status:
+          type: string
+          description: Статус документа
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+        updatedAt:
+          type: string
+          format: date-time
+          description: Дата обновления
+      description: Документ пользователя
+
+    CodeLength:
+      type: object
+      properties:
+        codeLength:
+          type: integer
+          description: Длина кода подтверждения
+      description: Информация о длине кода
+
+    Country:
+      type: object
+      properties:
+        alpha2:
+          type: string
+          description: Двухбуквенный код страны (ISO 3166-1 alpha-2)
+      description: Информация о стране
+
+    # Payment Schemas
+    CurrencySymbol:
+      type: string
+      description: Символ валюты (USD, EUR, RUB и т.д.)
+      enum: [USD, EUR, RUB, BTC, ETH]
+
+    ExchangeRate:
+      type: object
+      properties:
+        id:
+          type: string
+        baseCurrency:
+          $ref: '#/components/schemas/CurrencySymbol'
+        quoteCurrency:
+          $ref: '#/components/schemas/CurrencySymbol'
+        value:
+          type: number
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+      description: Курс обмена валют
+
+    PaymentMethod:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID метода оплаты
+        name:
+          type: string
+          description: Название метода оплаты
+        currency:
+          $ref: '#/components/schemas/CurrencySymbol'
+        exchangeRate:
+          $ref: '#/components/schemas/ExchangeRate'
+        isDisabled:
+          type: boolean
+          description: Отключен ли метод
+        type:
+          type: string
+          description: Тип метода оплаты
+        formData:
+          type: object
+          properties:
+            card:
+              type: string
+        paymentSystem:
+          type: object
+          properties:
+            id:
+              type: string
+            label:
+              type: string
+        limits:
+          type: object
+          properties:
+            currency:
+              $ref: '#/components/schemas/CurrencySymbol'
+            minAmount:
+              type: number
+            maxAmount:
+              type: number
+      description: Метод оплаты
+
+    WithdrawalMethod:
+      allOf:
+        - $ref: '#/components/schemas/PaymentMethod'
+        - type: object
+          properties:
+            formType:
+              type: string
+              description: Тип формы
+            formData:
+              type: object
+              properties:
+                card:
+                  type: string
+                address:
+                  type: string
+      description: Метод вывода средств
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID транзакции
+        userId:
+          type: string
+          description: ID пользователя
+        eventId:
+          type: string
+          description: ID события
+        amount:
+          type: number
+          description: Сумма транзакции
+        type:
+          type: string
+          description: Тип транзакции
+        status:
+          type: string
+          description: Статус транзакции
+        event:
+          type: string
+          description: Событие транзакции
+        currency:
+          $ref: '#/components/schemas/CurrencySymbol'
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата создания
+      description: Транзакция
+
+    DepositRequestBody:
+      type: object
+      properties:
+        amount:
+          type: number
+          description: Сумма депозита
+        amountInForeignCurrency:
+          type: number
+          description: Сумма в иностранной валюте
+        paymentSystemId:
+          type: string
+          description: ID платежной системы
+        paymentMethodId:
+          type: string
+          description: ID метода оплаты
+        exchangeRateId:
+          type: string
+          description: ID курса обмена
+        bonusId:
+          type: string
+          description: ID бонуса (опционально)
+      description: Тело запроса на депозит
+
+    WithdrawRequestBody:
+      type: object
+      properties:
+        amount:
+          type: number
+          description: Сумма вывода
+        amountInForeignCurrency:
+          type: number
+          description: Сумма в иностранной валюте
+        paymentSystemId:
+          type: string
+          description: ID платежной системы
+        paymentMethodId:
+          type: string
+          description: ID метода вывода
+        exchangeRateId:
+          type: string
+          description: ID курса обмена
+        formData:
+          type: object
+          properties:
+            card:
+              type: string
+            address:
+              type: string
+          description: Данные формы (карта или адрес)
+      description: Тело запроса на вывод средств
+
+    # Games Schemas
+    Games:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID игры
+        name:
+          type: string
+          description: Название игры
+        provider:
+          type: string
+          description: Провайдер игры
+        imageUrl:
+          type: string
+          format: uri
+          description: URL изображения игры
+        vendor:
+          type: string
+          description: Вендор игры
+        type:
+          type: string
+          description: Тип игры
+        hasDemo:
+          type: boolean
+          description: Есть ли демо-версия
+        isMobile:
+          type: boolean
+          description: Поддерживается ли мобильная версия
+        isDisabled:
+          type: boolean
+          description: Отключена ли игра
+        rtp:
+          type: string
+          description: Return to Player (процент возврата)
+        volatility:
+          type: string
+          description: Волатильность игры
+        minLine:
+          type: number
+          description: Минимальное количество линий
+        maxLine:
+          type: number
+          description: Максимальное количество линий
+        minBet:
+          type: number
+          description: Минимальная ставка
+        maxBet:
+          type: number
+          description: Максимальная ставка
+        sessionBalance:
+          type: boolean
+          description: Используется ли баланс сессии
+        currencies:
+          type: array
+          items:
+            type: string
+          description: Поддерживаемые валюты
+        tags:
+          type: array
+          items:
+            type: string
+          description: Теги игры
+        categories:
+          type: array
+          items:
+            type: string
+          description: Категории игры
+      description: Информация об игре
+
+    GamesByCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID категории
+        name:
+          type: string
+          description: Название категории
+        designStyle:
+          type: string
+          description: Стиль дизайна
+        displayPosition:
+          type: number
+          description: Позиция отображения
+        isVisible:
+          type: boolean
+          description: Видима ли категория
+        games:
+          type: array
+          items:
+            $ref: '#/components/schemas/Games'
+          description: Список игр в категории
+      description: Игры, сгруппированные по категориям
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID категории
+        name:
+          type: string
+          description: Название категории
+        designStyle:
+          type: string
+          description: Стиль дизайна
+        displayPosition:
+          type: number
+          description: Позиция отображения
+        gamesCount:
+          type: number
+          description: Количество игр в категории
+      description: Категория игр
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID тега
+        name:
+          type: string
+          description: Название тега
+        backgroundColor:
+          type: string
+          description: Цвет фона тега
+        color:
+          type: string
+          description: Цвет текста тега
+        designStyle:
+          type: string
+          description: Стиль дизайна
+      description: Тег для игры
+
+    # Bonus Schemas
+    PlayerLevel:
+      type: object
+      properties:
+        level:
+          type: number
+          description: Уровень игрока
+        experience:
+          type: number
+          description: Опыт игрока
+        name:
+          type: string
+          description: Название уровня
+        supportLevel:
+          type: string
+          description: Уровень поддержки
+        personalManager:
+          type: boolean
+          description: Есть ли персональный менеджер
+        chat:
+          type: boolean
+          description: Доступ к чату
+        bonuses:
+          type: boolean
+          description: Доступ к бонусам
+        tournaments:
+          type: boolean
+          description: Доступ к турнирам
+        weeklyBonuses:
+          type: boolean
+          description: Еженедельные бонусы
+        personalBonuses:
+          type: boolean
+          description: Персональные бонусы
+        cashback:
+          type: boolean
+          description: Доступ к кэшбэку
+        cashbackPercent:
+          type: number
+          description: Процент кэшбэка
+        cashbackWager:
+          type: number
+          description: Вейджер для кэшбэка
+        birthdayBonus:
+          type: boolean
+          description: Бонус на день рождения
+        birthdayBonusAmount:
+          type: number
+          description: Сумма бонуса на день рождения
+        coinCashout:
+          type: boolean
+          description: Вывод монет
+        quickWithdrawal:
+          type: boolean
+          description: Быстрый вывод
+        dailyWithdrawalLimit:
+          type: number
+          description: Дневной лимит вывода
+      description: Уровень игрока в системе лояльности
+
+    PlayerRank:
+      type: object
+      properties:
+        experience:
+          type: number
+          description: Текущий опыт игрока
+        experienceToNextLevel:
+          type: number
+          description: Опыт до следующего уровня
+        level:
+          type: number
+          description: Текущий уровень
+        progress:
+          type: number
+          description: Прогресс до следующего уровня (0-100)
+        cashback:
+          type: object
+          properties:
+            percent:
+              type: number
+            wager:
+              type: number
+          description: Настройки кэшбэка
+        referral:
+          type: object
+          properties:
+            percent:
+              type: number
+            wager:
+              type: number
+          description: Настройки реферальной программы
+        preferredDepositBonusId:
+          type: string
+          nullable: true
+          description: ID предпочитаемого бонуса на депозит
+        supportLevel:
+          type: string
+          description: Уровень поддержки
+        chat:
+          type: boolean
+        bonuses:
+          type: boolean
+        tournaments:
+          type: boolean
+        coinCashout:
+          type: boolean
+      description: Ранг и прогресс игрока
+
+    Game:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID игры
+      description: Базовая информация об игре
+
+    Bonus:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID бонуса
+        playerId:
+          type: string
+          description: ID игрока
+        currency:
+          type: string
+          description: Валюта бонуса
+        amount:
+          type: number
+          description: Сумма бонуса
+        wager:
+          type: number
+          description: Требуемый вейджер
+        wagerMaxBet:
+          type: number
+          description: Максимальная ставка для вейджера
+        wagerCounter:
+          type: number
+          description: Текущий счетчик вейджера
+        lifetimeType:
+          type: string
+          description: Тип времени жизни бонуса
+        presetId:
+          type: string
+          description: ID пресета бонуса
+        games:
+          type: array
+          items:
+            $ref: '#/components/schemas/Game'
+          description: Игры, на которые распространяется бонус
+        state:
+          type: string
+          description: Состояние бонуса
+        activationTimeout:
+          type: number
+          nullable: true
+          description: Таймаут активации
+        wageringTimeout:
+          type: string
+          description: Таймаут вейджера
+        accruedAt:
+          type: string
+          format: date-time
+          description: Дата начисления
+        activatedAt:
+          type: string
+          format: date-time
+          description: Дата активации
+        expiredAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата истечения
+        canceledAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата отмены
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата завершения
+        description:
+          type: string
+          description: Описание бонуса
+      description: Информация о бонусе
+
+    # Cashback Schemas
+    PreCashbackDetails:
+      type: object
+      properties:
+        periodId:
+          type: number
+          description: ID периода
+        serverTime:
+          type: string
+          format: date-time
+          description: Время сервера
+        startPeriod:
+          type: string
+          format: date-time
+          description: Начало периода
+        endPeriod:
+          type: string
+          format: date-time
+          description: Конец периода
+      description: Детали периода кэшбэка
+
+    PreCashback:
+      type: object
+      properties:
+        cashback:
+          type: array
+          items:
+            type: object
+          description: Список кэшбэков
+        details:
+          $ref: '#/components/schemas/PreCashbackDetails'
+      description: Предварительный кэшбэк
+
+    # Referral Schemas
+    PromoCode:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Описание промокода
+        expiredAt:
+          type: string
+          format: date-time
+          description: Дата истечения промокода
+      description: Промокод для создания
+
+    PromoCodesItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID промокода
+        code:
+          type: string
+          description: Код промокода
+        description:
+          type: string
+          description: Описание промокода
+        ownerId:
+          type: string
+          description: ID владельца промокода
+        leftUse:
+          type: number
+          description: Осталось использований
+        currentUse:
+          type: number
+          description: Текущее количество использований
+        isDisabled:
+          type: boolean
+          description: Отключен ли промокод
+        expiredAt:
+          type: string
+          format: date-time
+          description: Дата истечения
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+        updatedAt:
+          type: string
+          format: date-time
+          description: Дата обновления
+      description: Элемент списка промокодов
+
+    PromoCodesStatistic:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Код промокода
+        deposits:
+          type: array
+          items:
+            type: object
+          description: Статистика депозитов
+        id:
+          type: string
+          description: ID статистики
+        registrationsCount:
+          type: number
+          description: Количество регистраций
+        wins:
+          type: array
+          items:
+            type: object
+          description: Статистика выигрышей
+      description: Статистика использования промокода
+
+    # Winners Schemas
+    Wins:
+      type: object
+      properties:
+        game:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            provider:
+              type: string
+            imageUrl:
+              type: string
+              format: uri
+          description: Информация об игре
+        player:
+          type: object
+          properties:
+            avatarUrl:
+              type: string
+              format: uri
+            name:
+              type: string
+          description: Информация об игроке
+        win:
+          type: object
+          properties:
+            amount:
+              type: number
+              description: Сумма выигрыша
+            currency:
+              type: string
+              description: Валюта выигрыша
+            timestamp:
+              type: number
+              description: Временная метка выигрыша
+          description: Информация о выигрыше
+      description: Информация о выигрыше
+
+    # Chat Schemas
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID сообщения
+        userId:
+          type: string
+          description: ID пользователя
+        message:
+          type: string
+          description: Текст сообщения
+        nickname:
+          type: string
+          description: Никнейм отправителя
+        avatarUrl:
+          type: string
+          format: uri
+          description: URL аватара отправителя
+        isStaff:
+          type: boolean
+          description: Является ли отправитель сотрудником поддержки
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания сообщения
+      description: Сообщение в чате
+
+    # CMS Schemas
+    News:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID новости
+        title:
+          type: string
+          description: Заголовок новости
+        text:
+          type: string
+          description: Текст новости
+        image:
+          type: string
+          format: uri
+          description: URL изображения новости
+        isDeleted:
+          type: boolean
+          description: Удалена ли новость
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+      description: Новость
+
+    MainPromo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID промо
+        name:
+          type: string
+          description: Название промо
+        position:
+          type: number
+          description: Позиция отображения
+        title:
+          type: string
+          description: Заголовок промо
+        pretitle:
+          type: string
+          description: Подзаголовок промо
+        subtitle:
+          type: string
+          description: Дополнительный подзаголовок
+        audience:
+          type: string
+          description: Целевая аудитория
+        isVisible:
+          type: boolean
+          description: Видимо ли промо
+        image:
+          type: object
+          properties:
+            xl:
+              type: string
+              format: uri
+            md:
+              type: string
+              format: uri
+            sm:
+              type: string
+              format: uri
+            alt:
+              type: string
+          description: Изображения промо для разных размеров
+        button:
+          type: object
+          properties:
+            text:
+              type: string
+            icon:
+              type: boolean
+            url:
+              type: string
+              format: uri
+          description: Кнопка промо
+        isDeleted:
+          type: boolean
+          description: Удалено ли промо
+      description: Главное промо
+
+    # Localization Schemas
+    Language:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Код языка (ISO 639-1)
+        name:
+          type: string
+          description: Название языка
+        isDisabled:
+          type: boolean
+          description: Отключен ли язык
+      description: Язык локализации
+
+    TranslationPhrase:
+      type: object
+      properties:
+        languageCode:
+          type: string
+          description: Код языка
+        phrase:
+          type: string
+          description: Переведенная фраза
+      description: Фраза перевода для конкретного языка
+
+    Translation:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Ключ перевода
+        translations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationPhrase'
+          description: Переводы для разных языков
+      description: Перевод с ключом и переводами
+
+    # Widget Schemas
+    AppConfig:
+      type: object
+      properties:
+        newsSection:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Видимость секции новостей
+        tickerWidget:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Видимость виджета тикера
+        vionetteIntegration:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Интеграция с Vionette
+        paymentsSection:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Видимость секции платежей
+        gameInfo:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Видимость информации об игре
+        cookiesModal:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Видимость модального окна cookies
+        registrationViaPhone:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Регистрация через телефон
+        registrationViaTelegram:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Регистрация через Telegram
+        loginFromGoogle:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Вход через Google
+        showUserSocialAccounts:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Показывать социальные аккаунты
+        cashbackInfoSection:
+          type: object
+          properties:
+            isVisible:
+              type: boolean
+          description: Видимость секции информации о кэшбэке
+      description: Конфигурация приложения и виджетов
+
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Аутентификация через cookie сессии
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Аутентификация через JWT токен
+
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+

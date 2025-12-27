@@ -1,0 +1,5901 @@
+openapi: 3.0.3
+info:
+  title: Admin Module API
+  description: |
+    Полная спецификация API для административного модуля.
+    Содержит все эндпоинты из сервисов проекта.
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: /api
+    description: API Base URL
+
+tags:
+  - name: Admin
+    description: Административные эндпоинты BFF
+  - name: Transactions
+    description: Управление транзакциями
+  - name: Games
+    description: Управление играми
+  - name: Payment Systems
+    description: Управление платежными системами
+  - name: Withdrawal Requests
+    description: Управление запросами на вывод средств
+  - name: Widgets
+    description: Управление виджетами
+  - name: Staff
+    description: Управление персоналом
+  - name: Tags
+    description: Управление тегами игр
+  - name: User
+    description: Аутентификация и профиль пользователя
+  - name: Wallets
+    description: Управление кошельками
+  - name: Maintenance
+    description: Управление техническим обслуживанием
+  - name: Missions
+    description: Управление миссиями
+  - name: News
+    description: Управление новостями
+  - name: Pages
+    description: Управление страницами CMS
+  - name: Partners
+    description: Управление партнерской программой
+  - name: Players
+    description: Управление игроками
+  - name: Provider Integration
+    description: Интеграции с провайдерами
+  - name: Referral
+    description: Реферальная программа
+  - name: Bonus
+    description: Управление бонусами
+  - name: Catalog
+    description: Каталоги (страны, валюты)
+  - name: Categories
+    description: Категории игр
+  - name: Chat
+    description: Управление чатом
+  - name: Files
+    description: Загрузка файлов
+  - name: Halls
+    description: Управление залами
+  - name: Info
+    description: Информация о сервисах
+  - name: Localization
+    description: Локализация и переводы
+  - name: Main Promo
+    description: Главные промо-блоки
+
+paths:
+  # ============================================
+  # ADMIN SERVICE (BFF)
+  # ============================================
+  /admin/finances/withdrawal-requests:
+    get:
+      tags: [Admin]
+      summary: Получить список запросов на вывод средств
+      description: |
+        Получает список запросов на вывод средств с пагинацией и фильтрацией.
+        Поддерживает фильтрацию по userId, payoutStatus и status.
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+          description: Смещение для пагинации
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          description: Лимит записей
+        - name: userId
+          in: query
+          schema:
+            type: string
+          description: ID пользователя для фильтрации
+        - name: payoutStatus
+          in: query
+          schema:
+            type: string
+          description: Статус выплаты
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Общий статус запроса
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                  total:
+                    type: integer
+
+  /admin/finances/withdrawal-requests/{id}:
+    get:
+      tags: [Admin]
+      summary: Получить запрос на вывод по ID
+      description: Получает детальную информацию о запросе на вывод средств
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /admin/finances/deposits:
+    get:
+      tags: [Admin]
+      summary: Получить список депозитов
+      description: Получает список депозитов с пагинацией
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /admin/finances/withdrawals:
+    get:
+      tags: [Admin]
+      summary: Получить список выводов
+      description: Получает список выводов средств с пагинацией
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /admin/bonus/promo:
+    get:
+      tags: [Admin]
+      summary: Получить список промо-кодов
+      description: Получает список промо-кодов с пагинацией
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /admin/bonus/promo/{id}:
+    get:
+      tags: [Admin]
+      summary: Получить промо-код по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # TRANSACTIONS SERVICE
+  # ============================================
+  /finances/transactions:
+    get:
+      tags: [Transactions]
+      summary: Получить транзакции или платежи игрока
+      description: |
+        Получает транзакции или платежи по ID игрока.
+        Для платежей используйте event=['withdrawal', 'deposit'].
+        Для транзакций используйте event=['win', 'bet', 'bonus_accrue', 'bonus_revoke', 'refund'].
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID игрока
+        - name: event
+          in: query
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [win, bet, bonus_accrue, bonus_revoke, refund, withdrawal, deposit]
+          description: Типы событий для фильтрации
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Transaction'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ============================================
+  # GAMES SERVICE
+  # ============================================
+  /games/games:
+    get:
+      tags: [Games]
+      summary: Получить список игр
+      description: Получает список игр с пагинацией
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+        - name: vendor
+          in: query
+          schema:
+            type: string
+          description: Фильтр по вендору
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Game'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags: [Games]
+      summary: Создать игру
+      description: Создает новую игру (массовое создание)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameCreateRequest'
+      responses:
+        '200':
+          description: Успешное создание
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/games/{id}:
+    get:
+      tags: [Games]
+      summary: Получить игру по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Game'
+        '404':
+          description: Игра не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [Games]
+      summary: Изменить информацию об игре
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Games]
+      summary: Удалить игру
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '404':
+          description: Игра не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/play/sessions:
+    get:
+      tags: [Games]
+      summary: Получить сессии игрока
+      description: Получает игровые сессии по ID игрока
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID игрока
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /games/play/initDemo:
+    post:
+      tags: [Games]
+      summary: Инициализировать демо-игру
+      description: Создает демо-сессию для игры
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - gameId
+              properties:
+                gameId:
+                  type: string
+                  description: ID игры
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameDemoResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/provider/{providerName}/games/{gameId}:
+    get:
+      tags: [Games]
+      summary: Установить изображение по умолчанию
+      description: Получает изображение игры от провайдера
+      parameters:
+        - name: providerName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  image:
+                    type: string
+
+  /games/vendors:
+    get:
+      tags: [Games]
+      summary: Получить список вендоров
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VendorListResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/provider:
+    get:
+      tags: [Games]
+      summary: Получить список провайдеров
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # PAYMENT SYSTEMS SERVICE
+  # ============================================
+  /finances/payment-systems:
+    get:
+      tags: [Payment Systems]
+      summary: Получить список платежных систем
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentSystem'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Payment Systems]
+      summary: Добавить платежную систему
+      description: |
+        Создает новую платежную систему.
+        Параметры: name, type, isFrame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentSystemCreateRequest'
+      responses:
+        '200':
+          description: Успешное создание
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /finances/payment-systems/{id}:
+    get:
+      tags: [Payment Systems]
+      summary: Получить платежную систему по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSystem'
+        '404':
+          description: Платежная система не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [Payment Systems]
+      summary: Изменить платежную систему
+      description: Изменяет параметры платежной системы (например, isDisabled)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentSystemUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSystem'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Payment Systems]
+      summary: Удалить платежную систему
+      description: Удаляет платежную систему. Возвращает 409 если система используется.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '404':
+          description: Платежная система не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Конфликт - система используется
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /finances/payment-systems/{id}/currencies/{currency}:
+    put:
+      tags: [Payment Systems]
+      summary: Добавить или изменить валюту в платежной системе
+      description: |
+        Добавляет или изменяет настройки валюты для платежной системы.
+        Параметры: type, maxAmount, minAmount, isDisabled
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: currency
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentSystemCurrencyRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Payment Systems]
+      summary: Удалить валюту из платежной системы
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: currency
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /finances/withdrawals/withdrawal-methods/all:
+    get:
+      tags: [Payment Systems]
+      summary: Получить все методы вывода
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /finances/withdrawals/withdrawal-methods:
+    post:
+      tags: [Payment Systems]
+      summary: Создать метод вывода
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное создание
+        '409':
+          description: Конфликт - метод уже существует
+
+  /finances/withdrawals/withdrawal-methods/{id}:
+    patch:
+      tags: [Payment Systems]
+      summary: Изменить метод вывода
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isDisabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /finances/withdrawals/payment-methods/{id}:
+    delete:
+      tags: [Payment Systems]
+      summary: Удалить метод вывода
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /finances/deposits/payment-methods/all:
+    get:
+      tags: [Payment Systems]
+      summary: Получить все методы депозита
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /finances/deposits/payment-methods:
+    post:
+      tags: [Payment Systems]
+      summary: Создать метод депозита
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное создание
+        '409':
+          description: Конфликт - метод уже существует
+
+  /finances/deposits/payment-methods/{id}:
+    patch:
+      tags: [Payment Systems]
+      summary: Изменить метод депозита
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isDisabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Payment Systems]
+      summary: Удалить метод депозита
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /finances/payment-systems/supported:
+    get:
+      tags: [Payment Systems]
+      summary: Получить поддерживаемые названия платежных систем
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # WITHDRAWAL REQUESTS SERVICE
+  # ============================================
+  /finances/withdrawal-requests/{id}:
+    get:
+      tags: [Withdrawal Requests]
+      summary: Получить запрос на вывод по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Withdrawal Requests]
+      summary: Обновить кошелек в запросе на вывод
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /finances/withdrawal-requests/{id}/take:
+    post:
+      tags: [Withdrawal Requests]
+      summary: Взять запрос на вывод в работу
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /finances/withdrawal-requests/{id}/reject:
+    post:
+      tags: [Withdrawal Requests]
+      summary: Отклонить запрос на вывод
+      description: Отклоняет запрос на вывод с указанием причины
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithdrawalRequestRejectRequest'
+      responses:
+        '200':
+          description: Успешное отклонение
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Запрос не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /finances/withdrawal-requests/{id}/approve:
+    post:
+      tags: [Withdrawal Requests]
+      summary: Одобрить запрос на вывод
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное одобрение
+
+  /finances/withdrawal-requests/{id}/request-verification:
+    post:
+      tags: [Withdrawal Requests]
+      summary: Запросить верификацию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный запрос
+
+  /finances/withdrawal-requests/{id}/retry:
+    post:
+      tags: [Withdrawal Requests]
+      summary: Повторить отправку запроса на вывод
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /finances/withdrawal-requests/{id}/return:
+    post:
+      tags: [Withdrawal Requests]
+      summary: Вернуть запрос на вывод
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # WIDGETS SERVICE
+  # ============================================
+  /widgets/api/widgets:
+    get:
+      tags: [Widgets]
+      summary: Получить информацию о виджетах
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /widgets/api/{name}:
+    post:
+      tags: [Widgets]
+      summary: Обновить виджет
+      description: Обновляет значение виджета
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: string
+                isManual:
+                  type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+    put:
+      tags: [Widgets]
+      summary: Обновить валюту виджета
+      description: Обновляет валюту виджета
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currency
+              properties:
+                currency:
+                  type: object
+                  required:
+                    - value
+                    - isManual
+                  properties:
+                    value:
+                      type: string
+                    isManual:
+                      type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /widgets/api/config:
+    get:
+      tags: [Widgets]
+      summary: Получить отображаемые виджеты
+      responses:
+        '200':
+          description: Успешный ответ
+
+    put:
+      tags: [Widgets]
+      summary: Обновить видимость виджета
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - widget
+                - visibility
+              properties:
+                widget:
+                  type: string
+                visibility:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /widgets/api/config/{name}:
+    delete:
+      tags: [Widgets]
+      summary: Удалить виджет
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  # ============================================
+  # STAFF SERVICE
+  # ============================================
+  /users/staffs:
+    get:
+      tags: [Staff]
+      summary: Получить список персонала
+      description: Получает список сотрудников с фильтрацией и пагинацией
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: nickname
+          in: query
+          schema:
+            type: string
+          description: Фильтр по никнейму
+        - name: role
+          in: query
+          schema:
+            type: string
+          description: Фильтр по роли
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Staff]
+      summary: Создать сотрудника
+      description: Создает нового сотрудника (администратора, модератора и т.д.)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - login
+                - password
+              properties:
+                login:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Успешное создание
+
+  /users/{role}s/{id}:
+    get:
+      tags: [Staff]
+      summary: Получить сотрудника по ID
+      description: Получает информацию о сотруднике по роли и ID
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Роль сотрудника (admin, moderator и т.д.)
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /users/{role}s/{id}/update/pass:
+    put:
+      tags: [Staff]
+      summary: Изменить пароль сотрудника
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /users/{role}s/{id}/ban:
+    put:
+      tags: [Staff]
+      summary: Заблокировать сотрудника
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешная блокировка
+
+  /users/{role}s/{id}/unban:
+    put:
+      tags: [Staff]
+      summary: Разблокировать сотрудника
+      parameters:
+        - name: role
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешная разблокировка
+
+  # ============================================
+  # TAGS SERVICE
+  # ============================================
+  /games/tags:
+    get:
+      tags: [Tags]
+      summary: Получить список тегов
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Tag'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Tags]
+      summary: Создать тег
+      description: Создает новый тег для игр
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagCreateRequest'
+      responses:
+        '200':
+          description: Успешное создание
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/tags/{id}:
+    get:
+      tags: [Tags]
+      summary: Получить тег по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+        '404':
+          description: Тег не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [Tags]
+      summary: Изменить тег
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Tags]
+      summary: Удалить тег
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '404':
+          description: Тег не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/tags/{tagId}/games:
+    put:
+      tags: [Tags]
+      summary: Обновить игры в теге
+      description: Обновляет список игр, связанных с тегом
+      parameters:
+        - name: tagId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /games/games/{gameId}/tag/{tagId}:
+    put:
+      tags: [Tags]
+      summary: Добавить тег к игре
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tagId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное добавление
+
+    delete:
+      tags: [Tags]
+      summary: Удалить тег из игры
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: tagId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  # ============================================
+  # USER SERVICE (AUTH)
+  # ============================================
+  /users/staffs/login:
+    post:
+      tags: [User]
+      summary: Войти в систему
+      description: Аутентификация сотрудника
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '401':
+          description: Неверные учетные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/staffs/logout:
+    delete:
+      tags: [User]
+      summary: Выйти из системы
+      responses:
+        '200':
+          description: Успешный выход
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/staffs/me:
+    get:
+      tags: [User]
+      summary: Получить текущего пользователя
+      description: Получает информацию о текущем аутентифицированном пользователе
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Пользователь не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ============================================
+  # WALLETS SERVICE
+  # ============================================
+  /finances/wallets/by-user-id/{id}:
+    get:
+      tags: [Wallets]
+      summary: Получить кошельки игрока
+      description: Получает все кошельки игрока по его ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID игрока
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Wallet'
+        '404':
+          description: Игрок не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /finances/wallets/deposit:
+    post:
+      tags: [Wallets]
+      summary: Инициировать депозит
+      description: Создает депозит для игрока
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletDepositRequest'
+      responses:
+        '200':
+          description: Успешный депозит
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /finances/wallets/cashout:
+    post:
+      tags: [Wallets]
+      summary: Инициировать вывод средств
+      description: Создает запрос на вывод средств для игрока
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WalletCashoutRequest'
+      responses:
+        '200':
+          description: Успешный запрос
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ============================================
+  # MAINTENANCE SERVICE
+  # ============================================
+  /games/maintenance:
+    get:
+      tags: [Maintenance]
+      summary: Получить список технических обслуживаний
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Maintenance]
+      summary: Создать техническое обслуживание
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное создание
+
+  /games/maintenance/{id}:
+    delete:
+      tags: [Maintenance]
+      summary: Удалить техническое обслуживание
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /games/maintenance/{id}/games:
+    get:
+      tags: [Maintenance]
+      summary: Получить игры в обслуживании
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /games/maintenance/{id}/games/{gameId}:
+    put:
+      tags: [Maintenance]
+      summary: Добавить игру в обслуживание
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное добавление
+
+    delete:
+      tags: [Maintenance]
+      summary: Удалить игру из обслуживания
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /games/maintenance/{id}/games/byProviderAndVendor:
+    post:
+      tags: [Maintenance]
+      summary: Добавить игры по провайдеру и вендору
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное добавление
+
+    delete:
+      tags: [Maintenance]
+      summary: Удалить игры по провайдеру и вендору
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /games/maintenance/{id}/providersAndVendors:
+    get:
+      tags: [Maintenance]
+      summary: Получить провайдеров и вендоров в обслуживании
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /games/maintenance/{id}/games/byProvider:
+    post:
+      tags: [Maintenance]
+      summary: Добавить игры по провайдеру
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - provider
+              properties:
+                provider:
+                  type: string
+      responses:
+        '200':
+          description: Успешное добавление
+
+    delete:
+      tags: [Maintenance]
+      summary: Удалить игры по провайдеру
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - provider
+              properties:
+                provider:
+                  type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  # ============================================
+  # MISSIONS SERVICE
+  # ============================================
+  /users/missions/admin/missions:
+    get:
+      tags: [Missions]
+      summary: Получить список миссий
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Mission'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Missions]
+      summary: Создать миссию
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MissionCreateRequest'
+      responses:
+        '200':
+          description: Успешное создание
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mission'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [Missions]
+      summary: Обновить миссию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MissionUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/missions/admin/missions/{id}:
+    delete:
+      tags: [Missions]
+      summary: Удалить миссию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /users/missions/admin/missionsFull/{id}:
+    get:
+      tags: [Missions]
+      summary: Получить полную информацию о миссии
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /users/missions/admin/missions/{missionId}/levels:
+    get:
+      tags: [Missions]
+      summary: Получить уровни миссии
+      parameters:
+        - name: missionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Missions]
+      summary: Создать уровень миссии
+      parameters:
+        - name: missionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                duration:
+                  type: string
+                position:
+                  type: number
+      responses:
+        '200':
+          description: Успешное создание
+
+  /users/missions/admin/levels/{id}:
+    patch:
+      tags: [Missions]
+      summary: Обновить уровень миссии
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Missions]
+      summary: Удалить уровень миссии
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /users/missions/admin/levels/{levelId}/goals:
+    post:
+      tags: [Missions]
+      summary: Создать цель уровня
+      parameters:
+        - name: levelId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                description:
+                  type: string
+                position:
+                  type: number
+      responses:
+        '200':
+          description: Успешное создание
+
+  /users/missions/admin/goals/{id}:
+    patch:
+      tags: [Missions]
+      summary: Обновить цель
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Missions]
+      summary: Удалить цель
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /users/missions/admin/goals/{goalId}/goalConfigs:
+    post:
+      tags: [Missions]
+      summary: Создать конфигурацию цели
+      parameters:
+        - name: goalId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target:
+                  type: string
+                currency:
+                  type: string
+                minBet:
+                  type: string
+                maxBet:
+                  type: string
+                gameType:
+                  type: number
+      responses:
+        '200':
+          description: Успешное создание
+
+  /users/missions/admin/goalConfigs/{id}:
+    delete:
+      tags: [Missions]
+      summary: Удалить конфигурацию цели
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /users/missions/admin/levels/{levelId}/rewards:
+    post:
+      tags: [Missions]
+      summary: Создать награду уровня
+      parameters:
+        - name: levelId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                value:
+                  type: string
+      responses:
+        '200':
+          description: Успешное создание
+
+  /users/missions/admin/rewards/{id}:
+    patch:
+      tags: [Missions]
+      summary: Обновить награду
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Missions]
+      summary: Удалить награду
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /users/missions/admin/presets:
+    get:
+      tags: [Missions]
+      summary: Получить список пресетов миссий
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Missions]
+      summary: Создать пресет миссии
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - description
+              properties:
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Успешное создание
+
+  /users/missions/admin/presets/{id}:
+    get:
+      tags: [Missions]
+      summary: Получить пресет по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Missions]
+      summary: Обновить пресет
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Missions]
+      summary: Удалить пресет
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /users/missions/admin/presets/{id}/games:
+    put:
+      tags: [Missions]
+      summary: Обновить игры в пресете
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+  # ============================================
+  # NEWS SERVICE
+  # ============================================
+  /cms/news:
+    get:
+      tags: [News]
+      summary: Получить список новостей
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/News'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [News]
+      summary: Создать новость
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewsCreateRequest'
+      responses:
+        '200':
+          description: Успешное создание
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/News'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /cms/news/{id}:
+    get:
+      tags: [News]
+      summary: Получить новость по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/News'
+        '404':
+          description: Новость не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [News]
+      summary: Обновить новость
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewsUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [News]
+      summary: Удалить новость
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '404':
+          description: Новость не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ============================================
+  # PAGES SERVICE
+  # ============================================
+  /cms/pages/:
+    get:
+      tags: [Pages]
+      summary: Получить список страниц
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Pages]
+      summary: Создать страницу
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное создание
+
+  /cms/pages/{id}:
+    get:
+      tags: [Pages]
+      summary: Получить страницу по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Pages]
+      summary: Обновить страницу
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Pages]
+      summary: Удалить страницу
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /cms/page-categories/:
+    get:
+      tags: [Pages]
+      summary: Получить список категорий страниц
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Pages]
+      summary: Создать категорию страниц
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное создание
+        '400':
+          description: Дубликат данных
+
+  /cms/page-categories/{id}:
+    patch:
+      tags: [Pages]
+      summary: Обновить категорию страниц
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+        '400':
+          description: Дубликат данных
+
+    delete:
+      tags: [Pages]
+      summary: Удалить категорию страниц
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  # ============================================
+  # PARTNERS SERVICE
+  # ============================================
+  /users/partners/programs:
+    get:
+      tags: [Partners]
+      summary: Получить список партнерских программ
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Partners]
+      summary: Создать партнерскую программу
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isDisabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное создание
+
+  /users/partners/programs/{id}:
+    get:
+      tags: [Partners]
+      summary: Получить партнерскую программу по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Partners]
+      summary: Обновить партнерскую программу
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Partners]
+      summary: Удалить партнерскую программу
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /users/partners/programs/{id}/templates:
+    get:
+      tags: [Partners]
+      summary: Получить шаблоны партнерской программы
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Partners]
+      summary: Создать шаблон партнерской программы
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                isDisabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное создание
+
+  /users/partners/templates/{id}:
+    patch:
+      tags: [Partners]
+      summary: Обновить шаблон партнерской программы
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template:
+                  type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Partners]
+      summary: Удалить шаблон партнерской программы
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /users/partners/eventTypes:
+    get:
+      tags: [Partners]
+      summary: Получить типы событий партнерской программы
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /users/partners/postbacks:
+    get:
+      tags: [Partners]
+      summary: Получить список постбэков
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: ppId
+          in: query
+          schema:
+            type: string
+          description: ID партнерской программы
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /users/partners/postbacks/{id}:
+    get:
+      tags: [Partners]
+      summary: Получить постбэк по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /users/partners/postbacks/{id}/retry:
+    post:
+      tags: [Partners]
+      summary: Повторить отправку постбэка
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # PLAYERS SERVICE
+  # ============================================
+  /users/players:
+    get:
+      tags: [Players]
+      summary: Получить список игроков
+      description: Получает список игроков с фильтрацией и сортировкой
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Поисковый запрос
+        - name: country
+          in: query
+          schema:
+            type: string
+          description: Фильтр по стране (ISO 3166-1 alpha-2)
+        - name: currency
+          in: query
+          schema:
+            type: string
+          description: Фильтр по валюте
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+          description: Поле для сортировки
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Порядок сортировки
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Player'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Players]
+      summary: Создать игрока
+      description: Создает нового игрока
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerCreateRequest'
+      responses:
+        '200':
+          description: Успешное создание
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации (например, логин уже существует)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/players/{id}:
+    get:
+      tags: [Players]
+      summary: Получить игрока по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '404':
+          description: Игрок не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/players/getInfo:
+    post:
+      tags: [Players]
+      summary: Получить информацию об игроках
+      description: Получает информацию о нескольких игроках по массиву ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /users/players/{id}/documents:
+    get:
+      tags: [Players]
+      summary: Получить документы игрока
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /users/players/document/{id}:
+    patch:
+      tags: [Players]
+      summary: Изменить статус верификации документа
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /finances/player-requisites-v2/{id}:
+    get:
+      tags: [Players]
+      summary: Получить реквизиты игрока
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Players]
+      summary: Изменить реквизиты игрока
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                paymentMethodId:
+                  type: string
+                formData:
+                  type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /users/players/{id}/update:
+    put:
+      tags: [Players]
+      summary: Изменить информацию об игроке
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/players/{id}/update/pass:
+    put:
+      tags: [Players]
+      summary: Изменить пароль игрока
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerPasswordUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/players/{id}/update/level:
+    put:
+      tags: [Players]
+      summary: Изменить уровень игрока
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerLevelUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/players/{id}/ban:
+    put:
+      tags: [Players]
+      summary: Заблокировать игрока
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешная блокировка
+
+  /users/players/{id}/unban:
+    put:
+      tags: [Players]
+      summary: Разблокировать игрока
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешная разблокировка
+
+  /users/players/kick:
+    post:
+      tags: [Players]
+      summary: Выйти игрокам из системы
+      description: Принудительно выходит из системы массив игроков
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # PROVIDER INTEGRATION SERVICE
+  # ============================================
+  /games/provider-integrations:
+    get:
+      tags: [Provider Integration]
+      summary: Получить список интеграций с провайдерами
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Provider Integration]
+      summary: Создать интеграцию с провайдером
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - provider
+                - adapterUrl
+              properties:
+                name:
+                  type: string
+                provider:
+                  type: string
+                adapterUrl:
+                  type: string
+      responses:
+        '200':
+          description: Успешное создание
+
+  /games/provider-integrations/{id}:
+    get:
+      tags: [Provider Integration]
+      summary: Получить интеграцию по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Provider Integration]
+      summary: Изменить интеграцию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Provider Integration]
+      summary: Удалить интеграцию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /games/provider-integrations/{id}/games:
+    get:
+      tags: [Provider Integration]
+      summary: Получить игры интеграции
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /games/provider-integrations/{id}/updateGames:
+    post:
+      tags: [Provider Integration]
+      summary: Обновить игры интеграции
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /games/provider-integrations/{id}/artifacts:
+    get:
+      tags: [Provider Integration]
+      summary: Получить артефакты интеграции
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /games/artifacts/{id}:
+    get:
+      tags: [Provider Integration]
+      summary: Получить информацию об артефакте
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /games/artifacts/{artifactId}/add:
+    post:
+      tags: [Provider Integration]
+      summary: Добавить игры из артефакта
+      parameters:
+        - name: artifactId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+      responses:
+        '200':
+          description: Успешное добавление
+
+  /games/artifacts/{artifactId}/add/invisible:
+    post:
+      tags: [Provider Integration]
+      summary: Добавить невидимые игры из артефакта
+      parameters:
+        - name: artifactId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+      responses:
+        '200':
+          description: Успешное добавление
+
+  /games/artifacts/{artifactId}/disable:
+    post:
+      tags: [Provider Integration]
+      summary: Отключить игры из артефакта
+      parameters:
+        - name: artifactId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+      responses:
+        '200':
+          description: Успешное отключение
+
+  /games/artifacts/{artifactId}/update:
+    post:
+      tags: [Provider Integration]
+      summary: Обновить игры из артефакта
+      parameters:
+        - name: artifactId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+      responses:
+        '200':
+          description: Успешное обновление
+
+  # ============================================
+  # REFERRAL SERVICE
+  # ============================================
+  /bonus/promo:
+    post:
+      tags: [Referral]
+      summary: Создать промо-код
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное создание
+
+  /bonus/promo/{id}:
+    patch:
+      tags: [Referral]
+      summary: Изменить промо-код
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isDisabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное обновление
+
+  # ============================================
+  # BONUS SERVICE
+  # ============================================
+  /bonus/operator/accrued-bonuses:
+    get:
+      tags: [Bonus]
+      summary: Получить список бонусов
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+        - name: playerId
+          in: query
+          schema:
+            type: string
+          description: Фильтр по ID игрока
+        - name: currency
+          in: query
+          schema:
+            type: string
+          description: Фильтр по валюте
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: Фильтр по состоянию бонуса
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Bonus'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Bonus]
+      summary: Создать бонус для игрока
+      description: Начисляет бонус игроку
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BonusCreateRequest'
+      responses:
+        '200':
+          description: Успешное начисление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /bonus/operator/configs/cashback:
+    get:
+      tags: [Bonus]
+      summary: Получить конфигурацию кэшбэка
+      responses:
+        '200':
+          description: Успешный ответ
+
+    put:
+      tags: [Bonus]
+      summary: Изменить конфигурацию кэшбэка
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /bonus/operator/configs/referral:
+    get:
+      tags: [Bonus]
+      summary: Получить конфигурацию реферальной программы
+      responses:
+        '200':
+          description: Успешный ответ
+
+    put:
+      tags: [Bonus]
+      summary: Изменить конфигурацию реферальной программы
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /bonus/operator/deposit-bonus-templates:
+    get:
+      tags: [Bonus]
+      summary: Получить список шаблонов депозитных бонусов
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Bonus]
+      summary: Создать шаблон депозитного бонуса
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - level
+                - percent
+                - wager
+                - description
+                - presetId
+                - depositDenominator
+                - isPeriodical
+                - lifetimeType
+                - activationTimeout
+                - wageringTimeout
+                - config
+              properties:
+                level:
+                  type: number
+                percent:
+                  type: number
+                wager:
+                  type: number
+                description:
+                  type: string
+                presetId:
+                  type: string
+                depositDenominator:
+                  type: number
+                isPeriodical:
+                  type: boolean
+                lifetimeType:
+                  type: string
+                activationTimeout:
+                  type: string
+                wageringTimeout:
+                  type: string
+                config:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - currency
+                      - minDeposit
+                      - maxBonus
+                      - wagerMaxBet
+                    properties:
+                      currency:
+                        type: string
+                      minDeposit:
+                        type: number
+                      maxBonus:
+                        type: number
+                      wagerMaxBet:
+                        type: number
+      responses:
+        '200':
+          description: Успешное создание
+
+  /bonus/operator/deposit-bonus-templates/{id}:
+    get:
+      tags: [Bonus]
+      summary: Получить шаблон депозитного бонуса по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Bonus]
+      summary: Изменить шаблон депозитного бонуса
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Bonus]
+      summary: Удалить шаблон депозитного бонуса
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /bonus/operator/level:
+    get:
+      tags: [Bonus]
+      summary: Получить список уровней
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Bonus]
+      summary: Создать уровень
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - level
+                - experience
+              properties:
+                level:
+                  type: number
+                experience:
+                  type: number
+      responses:
+        '200':
+          description: Успешное создание
+
+  /bonus/operator/level/{id}:
+    patch:
+      tags: [Bonus]
+      summary: Изменить уровень
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Bonus]
+      summary: Удалить уровень
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /bonus/operator/level-buffs/{id}/{type}:
+    put:
+      tags: [Bonus]
+      summary: Изменить баффы уровня
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                value:
+                  type: number
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /bonus/operator/presets:
+    get:
+      tags: [Bonus]
+      summary: Получить список пресетов бонусов
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Bonus]
+      summary: Создать пресет бонуса
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - description
+              properties:
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Успешное создание
+
+  /bonus/operator/presets/{id}:
+    get:
+      tags: [Bonus]
+      summary: Получить пресет по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Bonus]
+      summary: Изменить пресет
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Bonus]
+      summary: Удалить пресет
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /bonus/operator/presets/{id}/games:
+    put:
+      tags: [Bonus]
+      summary: Обновить игры в пресете
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+  # ============================================
+  # CATALOG SERVICE
+  # ============================================
+  /catalogs/country:
+    get:
+      tags: [Catalog]
+      summary: Получить список стран
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /catalogs/currency:
+    get:
+      tags: [Catalog]
+      summary: Получить список валют
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    put:
+      tags: [Catalog]
+      summary: Добавить новую валюту
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+      responses:
+        '200':
+          description: Успешное добавление
+
+  /catalogs/currency/{code}:
+    delete:
+      tags: [Catalog]
+      summary: Удалить валюту
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /catalogs/currency/{code}/visibility:
+    patch:
+      tags: [Catalog]
+      summary: Изменить видимость валюты
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - isVisible
+              properties:
+                isVisible:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное обновление
+
+  # ============================================
+  # CATEGORIES SERVICE
+  # ============================================
+  /games/categories:
+    get:
+      tags: [Categories]
+      summary: Получить список категорий
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 20
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PaginatedResponse'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Category'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Categories]
+      summary: Создать категорию
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreateRequest'
+      responses:
+        '200':
+          description: Успешное создание
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/categories/{id}:
+    get:
+      tags: [Categories]
+      summary: Получить категорию по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '404':
+          description: Категория не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [Categories]
+      summary: Изменить категорию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpdateRequest'
+      responses:
+        '200':
+          description: Успешное обновление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Categories]
+      summary: Удалить категорию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '404':
+          description: Категория не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /games/categories/{id}/games:
+    get:
+      tags: [Categories]
+      summary: Получить игры в категории
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Categories]
+      summary: Добавить игру в категорию
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - gameId
+              properties:
+                gameId:
+                  type: string
+      responses:
+        '200':
+          description: Успешное добавление
+
+    put:
+      tags: [Categories]
+      summary: Обновить игры в категории
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /games/categories/{categoryId}/games/{gameId}:
+    delete:
+      tags: [Categories]
+      summary: Удалить игру из категории
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  # ============================================
+  # CHAT SERVICE
+  # ============================================
+  /chat/messages:
+    get:
+      tags: [Chat]
+      summary: Получить сообщения чата
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Chat]
+      summary: Отправить сообщение
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Успешная отправка
+
+    delete:
+      tags: [Chat]
+      summary: Удалить сообщения
+      description: Удаляет массив сообщений
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                - type: array
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /chat/v2/users/ban:
+    post:
+      tags: [Chat]
+      summary: Заблокировать пользователя в чате
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Успешная блокировка
+
+  /chat/v2/users/unban:
+    post:
+      tags: [Chat]
+      summary: Разблокировать пользователя в чате
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: Успешная разблокировка
+
+  /chat/v2/users/blacklist:
+    get:
+      tags: [Chat]
+      summary: Получить черный список пользователей
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # FILES SERVICE
+  # ============================================
+  /files/:
+    post:
+      tags: [Files]
+      summary: Загрузить изображение
+      description: Загружает изображение (multipart/form-data)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Файл изображения
+      responses:
+        '200':
+          description: Успешная загрузка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileUploadResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ============================================
+  # HALLS SERVICE
+  # ============================================
+  /halls/admin/groups:
+    get:
+      tags: [Halls]
+      summary: Получить список групп игроков
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Halls]
+      summary: Создать группу игроков
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                cashierId:
+                  type: string
+      responses:
+        '200':
+          description: Успешное создание
+
+  /halls/admin/groups/{id}:
+    get:
+      tags: [Halls]
+      summary: Получить группу по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Halls]
+      summary: Обновить группу
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Halls]
+      summary: Удалить группу
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /halls/admin/groups/{id}/players:
+    get:
+      tags: [Halls]
+      summary: Получить игроков группы
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /halls/admin/groups/{groupId}/players/{playerId}:
+    put:
+      tags: [Halls]
+      summary: Добавить игрока в группу
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное добавление
+        '400':
+          description: Игрок уже в другой группе
+
+    delete:
+      tags: [Halls]
+      summary: Удалить игрока из группы
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /halls/admin/players:
+    get:
+      tags: [Halls]
+      summary: Получить игроков уже в группах
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /halls/admin/players/getPinCode:
+    post:
+      tags: [Halls]
+      summary: Привязать игрока (получить PIN-код)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - playerId
+              properties:
+                playerId:
+                  type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /halls/admin/players/detach:
+    post:
+      tags: [Halls]
+      summary: Отвязать игрока
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - playerId
+              properties:
+                playerId:
+                  type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /halls/admin/shifts:
+    get:
+      tags: [Halls]
+      summary: Получить список смен
+      parameters:
+        - name: groupId
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /halls/admin/shifts/{id}:
+    get:
+      tags: [Halls]
+      summary: Получить смену по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /halls/admin/accounting/report:
+    get:
+      tags: [Halls]
+      summary: Получить отчет по смене
+      parameters:
+        - name: shiftId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /halls/admin/accounting/entries:
+    get:
+      tags: [Halls]
+      summary: Получить операции смены
+      parameters:
+        - name: shiftId
+          in: query
+          schema:
+            type: string
+        - name: accountId
+          in: query
+          schema:
+            type: string
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /halls/admin/accounting/report-extended:
+    get:
+      tags: [Halls]
+      summary: Получить расширенную статистику зала
+      parameters:
+        - name: groupId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # INFO SERVICE
+  # ============================================
+  /users/healthcheck:
+    get:
+      tags: [Info]
+      summary: Получить статистику сервиса пользователей
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /bonus/healthcheck:
+    get:
+      tags: [Info]
+      summary: Получить статистику бонусного сервиса
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /games/healthcheck:
+    get:
+      tags: [Info]
+      summary: Получить статистику игрового сервиса
+      responses:
+        '200':
+          description: Успешный ответ
+
+  # ============================================
+  # LOCALIZATION SERVICE
+  # ============================================
+  /i18n/languages:
+    get:
+      tags: [Localization]
+      summary: Получить список языков
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Localization]
+      summary: Добавить новый язык
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                isDisabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное добавление
+
+  /i18n/languages/{code}:
+    patch:
+      tags: [Localization]
+      summary: Изменить язык
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                isDisabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Localization]
+      summary: Удалить язык
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /i18n/v2/translations:
+    get:
+      tags: [Localization]
+      summary: Получить список переводов
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+          description: Фильтр по ключу перевода
+        - name: languageCode
+          in: query
+          schema:
+            type: string
+          description: Код языка
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    put:
+      tags: [Localization]
+      summary: Изменить переводы
+      description: Обновляет массив переводов
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  translations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        languageCode:
+                          type: string
+                        phrase:
+                          type: string
+      responses:
+        '200':
+          description: Успешное обновление
+
+  /i18n/v2/translations/{key}:
+    delete:
+      tags: [Localization]
+      summary: Удалить перевод по ключу
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /i18n/v2/translations/entity/{key}:
+    delete:
+      tags: [Localization]
+      summary: Удалить все переводы сущности по ключу
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+  /i18n/v2/translations/{languageCode}:
+    get:
+      tags: [Localization]
+      summary: Получить переводы по языку
+      parameters:
+        - name: languageCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+  /i18n/translations/categories/{id}:
+    get:
+      tags: [Localization]
+      summary: Получить переводы категории
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Localization]
+      summary: Добавить перевод для категории
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                languageCode:
+                  type: string
+      responses:
+        '200':
+          description: Успешное добавление
+
+  /i18n/translations/tags/{id}:
+    get:
+      tags: [Localization]
+      summary: Получить переводы тега
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Localization]
+      summary: Добавить перевод для тега
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                languageCode:
+                  type: string
+      responses:
+        '200':
+          description: Успешное добавление
+
+  /i18n/translations/mainPromo/{id}:
+    get:
+      tags: [Localization]
+      summary: Получить переводы главного промо
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Localization]
+      summary: Добавить перевод для главного промо
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                languageCode:
+                  type: string
+      responses:
+        '200':
+          description: Успешное добавление
+
+  # ============================================
+  # MAIN PROMO SERVICE
+  # ============================================
+  /cms/main-promo:
+    get:
+      tags: [Main Promo]
+      summary: Получить список главных промо-блоков
+      parameters:
+        - name: offset
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Успешный ответ
+
+    post:
+      tags: [Main Promo]
+      summary: Создать главный промо-блок
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                position:
+                  type: number
+                pretitle:
+                  type: string
+                title:
+                  type: string
+                subtitle:
+                  type: string
+                image:
+                  type: object
+                button:
+                  type: object
+                audience:
+                  type: string
+                isVisible:
+                  type: boolean
+      responses:
+        '200':
+          description: Успешное создание
+
+  /cms/main-promo/{id}:
+    get:
+      tags: [Main Promo]
+      summary: Получить главный промо-блок по ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешный ответ
+
+    patch:
+      tags: [Main Promo]
+      summary: Обновить главный промо-блок
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Успешное обновление
+
+    delete:
+      tags: [Main Promo]
+      summary: Удалить главный промо-блок
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Успешное удаление
+
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Сообщение об ошибке
+        error:
+          type: string
+          description: Тип ошибки
+      required:
+        - message
+
+    PaginationParams:
+      type: object
+      properties:
+        offset:
+          type: integer
+          description: Смещение для пагинации
+          minimum: 0
+          default: 0
+        limit:
+          type: integer
+          description: Лимит записей
+          minimum: 1
+          maximum: 1000
+          default: 20
+
+    PaginatedResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          description: Массив элементов
+        total:
+          type: integer
+          description: Общее количество элементов
+          minimum: 0
+      required:
+        - items
+        - total
+
+    # ============================================
+    # PLAYER SCHEMAS
+    # ============================================
+    Player:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор игрока
+        login:
+          type: string
+          description: Логин игрока
+        email:
+          type: string
+          format: email
+          description: Email игрока
+        phone:
+          type: string
+          description: Телефон игрока
+        name:
+          type: string
+          description: Имя игрока
+        surname:
+          type: string
+          description: Фамилия игрока
+        nickname:
+          type: string
+          description: Никнейм игрока
+        currency:
+          type: string
+          description: Валюта игрока
+        country:
+          type: string
+          description: Страна игрока
+        isBanned:
+          type: boolean
+          description: Заблокирован ли игрок
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+        level:
+          type: integer
+          description: Уровень игрока
+      required:
+        - id
+
+    PlayerCreateRequest:
+      type: object
+      properties:
+        login:
+          type: string
+          description: Логин игрока
+        password:
+          type: string
+          description: Пароль игрока
+        country:
+          type: string
+          description: Код страны (ISO 3166-1 alpha-2)
+        currency:
+          type: string
+          description: Код валюты
+        promoCode:
+          type: string
+          description: Промо-код (опционально)
+      required:
+        - login
+        - password
+        - country
+        - currency
+
+    PlayerUpdateRequest:
+      type: object
+      properties:
+        login:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        name:
+          type: string
+        surname:
+          type: string
+        nickname:
+          type: string
+        currency:
+          type: string
+        country:
+          type: string
+
+    PlayerPasswordUpdateRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          description: Новый пароль
+      required:
+        - password
+
+    PlayerLevelUpdateRequest:
+      type: object
+      properties:
+        level:
+          type: integer
+          description: Новый уровень
+      required:
+        - level
+
+    # ============================================
+    # GAME SCHEMAS
+    # ============================================
+    Game:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор игры
+        uuid:
+          type: string
+          description: UUID игры
+        name:
+          type: string
+          description: Название игры
+        vendor:
+          type: string
+          description: Вендор игры
+        provider:
+          type: string
+          description: Провайдер игры
+        type:
+          type: string
+          description: Тип игры
+        imageUrl:
+          type: string
+          format: uri
+          description: URL изображения игры
+        isVisible:
+          type: boolean
+          description: Видима ли игра
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+          description: Категории игры
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+          description: Теги игры
+      required:
+        - id
+        - name
+
+    GameCreateRequest:
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+          vendor:
+            type: string
+          provider:
+            type: string
+          type:
+            type: string
+          imageUrl:
+            type: string
+            format: uri
+
+    GameUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+        isVisible:
+          type: boolean
+        vendor:
+          type: string
+        provider:
+          type: string
+
+    GameDemoResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL для демо-игры
+      required:
+        - url
+
+    # ============================================
+    # TRANSACTION SCHEMAS
+    # ============================================
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор транзакции
+        userId:
+          type: string
+          description: ID игрока
+        amount:
+          type: number
+          description: Сумма транзакции
+        currency:
+          type: string
+          description: Валюта транзакции
+        event:
+          type: string
+          enum: [win, bet, bonus_accrue, bonus_revoke, refund, withdrawal, deposit]
+          description: Тип события
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания транзакции
+        status:
+          type: string
+          description: Статус транзакции
+      required:
+        - id
+        - userId
+        - amount
+        - currency
+        - event
+
+    # ============================================
+    # WALLET SCHEMAS
+    # ============================================
+    Wallet:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор кошелька
+        userId:
+          type: string
+          description: ID игрока
+        currency:
+          type: string
+          description: Валюта кошелька
+        balance:
+          type: number
+          description: Баланс кошелька
+          minimum: 0
+      required:
+        - id
+        - userId
+        - currency
+        - balance
+
+    WalletDepositRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: ID игрока
+        amount:
+          type: string
+          description: Сумма депозита
+        currency:
+          type: string
+          description: Валюта
+      required:
+        - userId
+        - amount
+        - currency
+
+    WalletCashoutRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          description: ID игрока
+        amount:
+          type: string
+          description: Сумма вывода
+        currency:
+          type: string
+          description: Валюта
+      required:
+        - userId
+        - amount
+        - currency
+
+    # ============================================
+    # TAG SCHEMAS
+    # ============================================
+    Tag:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор тега
+        name:
+          type: string
+          description: Название тега
+        designStyle:
+          type: string
+          description: Стиль дизайна тега
+      required:
+        - id
+        - name
+
+    TagCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Название тега
+        designStyle:
+          type: string
+          description: Стиль дизайна тега
+      required:
+        - name
+        - designStyle
+
+    TagUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        designStyle:
+          type: string
+
+    # ============================================
+    # CATEGORY SCHEMAS
+    # ============================================
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор категории
+        name:
+          type: string
+          description: Название категории
+        designStyle:
+          type: string
+          description: Стиль дизайна категории
+      required:
+        - id
+        - name
+
+    CategoryCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Название категории
+        designStyle:
+          type: string
+          description: Стиль дизайна категории
+      required:
+        - name
+
+    CategoryUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        designStyle:
+          type: string
+
+    # ============================================
+    # PAYMENT SYSTEM SCHEMAS
+    # ============================================
+    PaymentSystem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор платежной системы
+        name:
+          type: string
+          description: Название платежной системы
+        type:
+          type: string
+          description: Тип платежной системы
+        isFrame:
+          type: boolean
+          description: Используется ли iframe
+        isDisabled:
+          type: boolean
+          description: Отключена ли система
+        currencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentSystemCurrency'
+          description: Валюты платежной системы
+      required:
+        - id
+        - name
+        - type
+
+    PaymentSystemCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Название платежной системы
+        type:
+          type: string
+          description: Тип платежной системы
+        isFrame:
+          type: boolean
+          description: Используется ли iframe
+      required:
+        - name
+        - type
+
+    PaymentSystemUpdateRequest:
+      type: object
+      properties:
+        isDisabled:
+          type: boolean
+          description: Отключить/включить систему
+
+    PaymentSystemCurrency:
+      type: object
+      properties:
+        currency:
+          type: string
+          description: Код валюты
+        type:
+          type: string
+          description: Тип (deposit/withdrawal)
+        maxAmount:
+          type: number
+          description: Максимальная сумма
+        minAmount:
+          type: number
+          description: Минимальная сумма
+        isDisabled:
+          type: boolean
+          description: Отключена ли валюта
+      required:
+        - currency
+        - type
+
+    PaymentSystemCurrencyRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          description: Тип (deposit/withdrawal)
+        maxAmount:
+          type: number
+        minAmount:
+          type: number
+        isDisabled:
+          type: boolean
+      required:
+        - type
+
+    # ============================================
+    # WITHDRAWAL REQUEST SCHEMAS
+    # ============================================
+    WithdrawalRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор запроса
+        userId:
+          type: string
+          description: ID игрока
+        amount:
+          type: number
+          description: Сумма вывода
+        currency:
+          type: string
+          description: Валюта
+        status:
+          type: string
+          description: Статус запроса
+        payoutStatus:
+          type: string
+          description: Статус выплаты
+        paymentSystemId:
+          type: string
+          description: ID платежной системы
+        managerId:
+          type: string
+          description: ID менеджера
+        managerRole:
+          type: string
+          description: Роль менеджера
+        reason:
+          type: string
+          description: Причина отклонения
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+      required:
+        - id
+        - userId
+        - amount
+        - currency
+
+    WithdrawalRequestRejectRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          description: Причина отклонения
+      required:
+        - reason
+
+    WithdrawalRequestUpdateRequest:
+      type: object
+      properties:
+        wallet:
+          type: object
+          description: Данные кошелька
+
+    # ============================================
+    # STAFF SCHEMAS
+    # ============================================
+    Staff:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор сотрудника
+        login:
+          type: string
+          description: Логин сотрудника
+        nickname:
+          type: string
+          description: Никнейм сотрудника
+        role:
+          type: string
+          description: Роль сотрудника
+        isBanned:
+          type: boolean
+          description: Заблокирован ли сотрудник
+      required:
+        - id
+        - login
+        - role
+
+    StaffCreateRequest:
+      type: object
+      properties:
+        login:
+          type: string
+          description: Логин сотрудника
+        password:
+          type: string
+          description: Пароль сотрудника
+      required:
+        - login
+        - password
+
+    StaffPasswordUpdateRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          description: Новый пароль
+      required:
+        - password
+
+    # ============================================
+    # NEWS SCHEMAS
+    # ============================================
+    News:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор новости
+        title:
+          type: string
+          description: Заголовок новости
+        text:
+          type: string
+          description: Текст новости
+        image:
+          type: string
+          format: uri
+          description: URL изображения
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+      required:
+        - id
+        - title
+
+    NewsCreateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Заголовок новости
+        text:
+          type: string
+          description: Текст новости
+        image:
+          type: string
+          format: uri
+          description: URL изображения
+      required:
+        - title
+        - text
+
+    NewsUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        text:
+          type: string
+        image:
+          type: string
+          format: uri
+
+    # ============================================
+    # BONUS SCHEMAS
+    # ============================================
+    Bonus:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор бонуса
+        playerId:
+          type: string
+          description: ID игрока
+        amount:
+          type: number
+          description: Сумма бонуса
+        currency:
+          type: string
+          description: Валюта
+        state:
+          type: string
+          description: Состояние бонуса
+        presetId:
+          type: string
+          description: ID пресета
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания
+      required:
+        - id
+        - playerId
+        - amount
+        - currency
+
+    BonusCreateRequest:
+      type: object
+      properties:
+        playerId:
+          type: string
+          description: ID игрока
+        currency:
+          type: string
+          description: Валюта
+        presetId:
+          type: string
+          description: ID пресета
+        lifetimeType:
+          type: string
+          description: Тип времени жизни
+        amount:
+          type: number
+          description: Сумма бонуса
+        wager:
+          type: number
+          description: Вейджер
+        wagerMaxBet:
+          type: number
+          description: Максимальная ставка для вейджера
+        description:
+          type: string
+          description: Описание
+        activationTimeout:
+          type: string
+          description: Таймаут активации
+        wageringTimeout:
+          type: string
+          description: Таймаут вейджера
+      required:
+        - playerId
+        - currency
+        - presetId
+        - lifetimeType
+        - amount
+        - wager
+        - wagerMaxBet
+        - description
+        - activationTimeout
+        - wageringTimeout
+
+    # ============================================
+    # MISSION SCHEMAS
+    # ============================================
+    Mission:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор миссии
+        name:
+          type: string
+          description: Название миссии
+        description:
+          type: string
+          description: Описание миссии
+        image:
+          type: string
+          format: uri
+          description: URL изображения
+        position:
+          type: number
+          description: Позиция миссии
+      required:
+        - id
+        - name
+
+    MissionCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Название миссии
+        description:
+          type: string
+          description: Описание миссии
+        image:
+          type: string
+          format: uri
+          description: URL изображения
+        position:
+          type: number
+          description: Позиция миссии
+
+    MissionUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        image:
+          type: string
+          format: uri
+        position:
+          type: number
+
+    # ============================================
+    # USER AUTH SCHEMAS
+    # ============================================
+    LoginRequest:
+      type: object
+      properties:
+        login:
+          type: string
+          description: Логин пользователя
+        password:
+          type: string
+          description: Пароль пользователя
+      required:
+        - login
+        - password
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор пользователя
+        login:
+          type: string
+          description: Логин пользователя
+        nickname:
+          type: string
+          description: Никнейм пользователя
+        role:
+          type: string
+          description: Роль пользователя
+      required:
+        - id
+        - login
+        - role
+
+    # ============================================
+    # FILE UPLOAD SCHEMAS
+    # ============================================
+    FileUploadResponse:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          description: URL загруженного файла
+      required:
+        - url
+
+    # ============================================
+    # VENDOR/PROVIDER SCHEMAS
+    # ============================================
+    VendorListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: string
+          description: Список вендоров
+      required:
+        - items
+
+    Provider:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор провайдера
+        name:
+          type: string
+          description: Название провайдера
+      required:
+        - id
+        - name
+
