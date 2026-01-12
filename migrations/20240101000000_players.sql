@@ -1,4 +1,5 @@
--- players
+-- +goose Up
+-- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS players (
   id              UUID PRIMARY KEY,
   email           TEXT NOT NULL UNIQUE,
@@ -56,3 +57,11 @@ CREATE TABLE IF NOT EXISTS outbox (
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbox_published_at ON outbox(published_at);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+DROP TABLE IF EXISTS outbox;
+DROP TABLE IF EXISTS player_status_events;
+DROP TABLE IF EXISTS players;
+-- +goose StatementEnd
