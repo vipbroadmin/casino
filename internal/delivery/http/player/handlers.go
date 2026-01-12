@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -247,4 +248,265 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 
 func writeErr(w http.ResponseWriter, code int, kind string) {
 	writeJSON(w, code, map[string]any{"error": kind})
+}
+
+// --- admin endpoints ---
+
+// ListPlayers handles GET /users/players
+func (h *HTTP) ListPlayers(w http.ResponseWriter, r *http.Request) {
+	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	search := r.URL.Query().Get("search")
+	country := r.URL.Query().Get("country")
+	currency := r.URL.Query().Get("currency")
+	sortBy := r.URL.Query().Get("sortBy")
+	order := r.URL.Query().Get("order")
+
+	rows, total, err := h.uc.ListPlayers(r.Context(), playeruc.ListPlayersQuery{
+		Offset:   offset,
+		Limit:    limit,
+		Search:   search,
+		Country:  country,
+		Currency: currency,
+		SortBy:   sortBy,
+		Order:    order,
+	})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	items := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		items[i] = toAdminPlayerDTO(row)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items": items,
+		"total": total,
+	})
+}
+
+// CreatePlayerAdmin handles POST /users/players (admin version with login/password)
+func (h *HTTP) CreatePlayerAdmin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Login     string `json:"login"`
+		Password  string `json:"password"`
+		Country   string `json:"country"`
+		Currency  string `json:"currency"`
+		PromoCode string `json:"promoCode,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_json")
+		return
+	}
+
+	if req.Login == "" || req.Password == "" || req.Country == "" || req.Currency == "" {
+		writeErr(w, http.StatusBadRequest, "validation")
+		return
+	}
+
+	// Use CreatePlayerAdmin usecase method
+	err := h.uc.CreatePlayerAdmin(r.Context(), playeruc.CreatePlayerAdminCmd{
+		Login:     req.Login,
+		Password:  req.Password,
+		Country:   req.Country,
+		Currency:  req.Currency,
+		PromoCode: req.PromoCode,
+	})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
+// GetPlayerAdmin handles GET /users/players/{id}
+func (h *HTTP) GetPlayerAdmin(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	// Fetch admin row
+	rows, err := h.uc.GetPlayersInfo(r.Context(), []uuid.UUID{id})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	if len(rows) == 0 {
+		writeErr(w, http.StatusNotFound, "not_found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toAdminPlayerDTO(rows[0]))
+}
+
+// GetPlayersInfo handles POST /users/players/getInfo
+func (h *HTTP) GetPlayersInfo(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_json")
+		return
+	}
+
+	ids := make([]uuid.UUID, 0, len(req.IDs))
+	for _, idStr := range req.IDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "bad_id")
+			return
+		}
+		ids = append(ids, id)
+	}
+
+	rows, err := h.uc.GetPlayersInfo(r.Context(), ids)
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	items := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		items[i] = toAdminPlayerDTO(row)
+	}
+
+	writeJSON(w, http.StatusOK, items)
+}
+
+// UpdatePlayer handles PUT /users/players/{id}/update
+func (h *HTTP) UpdatePlayer(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	var req struct {
+		Login    *string `json:"login,omitempty"`
+		Email    *string `json:"email,omitempty"`
+		Phone    *string `json:"phone,omitempty"`
+		Name     *string `json:"name,omitempty"`
+		Surname  *string `json:"surname,omitempty"`
+		Nickname *string `json:"nickname,omitempty"`
+		Currency *string `json:"currency,omitempty"`
+		Country  *string `json:"country,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_json")
+		return
+	}
+
+	err = h.uc.UpdatePlayerProfile(r.Context(), playeruc.UpdatePlayerProfileCmd{
+		ID:       id,
+		Login:    req.Login,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Name:     req.Name,
+		Surname:  req.Surname,
+		Nickname: req.Nickname,
+		Currency: req.Currency,
+		Country:  req.Country,
+	})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
+// UpdatePassword handles PUT /users/players/{id}/update/pass
+func (h *HTTP) UpdatePassword(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	var req struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_json")
+		return
+	}
+
+	if req.Password == "" {
+		writeErr(w, http.StatusBadRequest, "validation")
+		return
+	}
+
+	err = h.uc.UpdatePlayerPassword(r.Context(), playeruc.UpdatePlayerPasswordCmd{
+		ID:          id,
+		NewPassword: req.Password,
+	})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
+// BanPlayer handles PUT /users/players/{id}/ban
+func (h *HTTP) BanPlayer(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	err = h.uc.BanPlayer(r.Context(), id)
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
+// UnbanPlayer handles PUT /users/players/{id}/unban
+func (h *HTTP) UnbanPlayer(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	err = h.uc.UnbanPlayer(r.Context(), id)
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
+// toAdminPlayerDTO converts PlayerRow to admin API format
+func toAdminPlayerDTO(row playeruc.PlayerRow) map[string]any {
+	return map[string]any{
+		"id":        row.ID.String(),
+		"login":     row.Login,
+		"email":     row.Email,
+		"phone":     row.Phone,
+		"name":      row.Name,
+		"surname":   row.Surname,
+		"nickname":  row.Nickname,
+		"currency":  row.Currency,
+		"country":   row.Country,
+		"isBanned":  row.IsBanned,
+		"level":     row.Level,
+		"createdAt": row.CreatedAt.Format(time.RFC3339),
+	}
 }

@@ -2,6 +2,7 @@ package playeruc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -13,6 +14,58 @@ type PlayerRepository interface {
 	GetByEmail(ctx context.Context, email string) (*player.Player, error)
 	Create(ctx context.Context, p *player.Player) error
 	Update(ctx context.Context, p *player.Player) error
+
+	// Admin-facing operations
+	List(ctx context.Context, q ListPlayersQuery) ([]PlayerRow, int64, error)
+	GetMany(ctx context.Context, ids []uuid.UUID) ([]PlayerRow, error)
+	UpdateProfile(ctx context.Context, cmd UpdatePlayerProfileCmd) error
+	UpdatePassword(ctx context.Context, cmd UpdatePlayerPasswordCmd) error
+	SetBan(ctx context.Context, id uuid.UUID, banned bool) error
+}
+
+// ListPlayersQuery describes filters for admin list.
+type ListPlayersQuery struct {
+	Offset int
+	Limit  int
+
+	Search   string
+	Country  string
+	Currency string
+	SortBy   string
+	Order    string // asc|desc
+}
+
+// PlayerRow is a lightweight admin projection.
+type PlayerRow struct {
+	ID        uuid.UUID
+	Login     string
+	Email     string
+	Phone     string
+	Name      string
+	Surname   string
+	Nickname  string
+	Currency  string
+	Country   string
+	IsBanned  bool
+	Level     int
+	CreatedAt time.Time
+}
+
+type UpdatePlayerProfileCmd struct {
+	ID       uuid.UUID
+	Login    *string
+	Email    *string
+	Phone    *string
+	Name     *string
+	Surname  *string
+	Nickname *string
+	Currency *string
+	Country  *string
+}
+
+type UpdatePlayerPasswordCmd struct {
+	ID          uuid.UUID
+	NewPassword string
 }
 
 type PlayerStatusEventRepository interface {

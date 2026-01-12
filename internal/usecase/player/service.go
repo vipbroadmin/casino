@@ -178,3 +178,111 @@ func (s *Service) ChangeStatus(ctx context.Context, cmd ChangeStatusCmd) (*playe
 func (s *Service) GetPlayer(ctx context.Context, id uuid.UUID) (*player.Player, error) {
 	return s.players.GetByID(ctx, id)
 }
+
+// --- admin operations ---
+
+func (s *Service) ListPlayers(ctx context.Context, q ListPlayersQuery) ([]PlayerRow, int64, error) {
+	if q.Limit <= 0 || q.Limit > 1000 {
+		q.Limit = 20
+	}
+	if q.Offset < 0 {
+		q.Offset = 0
+	}
+	return s.players.List(ctx, q)
+}
+
+func (s *Service) GetPlayersInfo(ctx context.Context, ids []uuid.UUID) ([]PlayerRow, error) {
+	if len(ids) == 0 {
+		return []PlayerRow{}, nil
+	}
+	return s.players.GetMany(ctx, ids)
+}
+
+func (s *Service) UpdatePlayerProfile(ctx context.Context, cmd UpdatePlayerProfileCmd) error {
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		// ensure player exists
+		if _, err := s.players.GetByID(ctx, cmd.ID); err != nil {
+			return err
+		}
+		return s.players.UpdateProfile(ctx, cmd)
+	})
+}
+
+func (s *Service) UpdatePlayerPassword(ctx context.Context, cmd UpdatePlayerPasswordCmd) error {
+	// hashing delegated to repository or helper; keep usecase simple for now
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		// ensure player exists
+		if _, err := s.players.GetByID(ctx, cmd.ID); err != nil {
+			return err
+		}
+		return s.players.UpdatePassword(ctx, cmd)
+	})
+}
+
+func (s *Service) BanPlayer(ctx context.Context, id uuid.UUID) error {
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := s.players.GetByID(ctx, id); err != nil {
+			return err
+		}
+		return s.players.SetBan(ctx, id, true)
+	})
+}
+
+func (s *Service) UnbanPlayer(ctx context.Context, id uuid.UUID) error {
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := s.players.GetByID(ctx, id); err != nil {
+			return err
+		}
+		return s.players.SetBan(ctx, id, false)
+	})
+}
+
+type CreatePlayerAdminCmd struct {
+	Login     string
+	Password  string
+	Country   string
+	Currency  string
+	PromoCode string
+}
+
+func (s *Service) CreatePlayerAdmin(ctx context.Context, cmd CreatePlayerAdminCmd) error {
+	now := s.clock.Now()
+
+	addr, err := player.NewAddress(strings.ToUpper(cmd.Country), "en", "UTC")
+	if err != nil {
+		return err
+	}
+
+	// Create player with temporary email (login will be set separately)
+	p, err := player.NewPlayer(player.CreateParams{
+		Email:   cmd.Login + "@temp.local",
+		Address: addr,
+	}, now)
+	if err != nil {
+		return err
+	}
+
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		// Check login uniqueness (simple check - can be enhanced)
+		// For now, create player first
+		if err := s.players.Create(ctx, p); err != nil {
+			return err
+		}
+
+		// Update profile to set login/currency/country
+		if err := s.players.UpdateProfile(ctx, UpdatePlayerProfileCmd{
+			ID:       p.ID,
+			Login:    &cmd.Login,
+			Currency: &cmd.Currency,
+			Country:  &cmd.Country,
+		}); err != nil {
+			return err
+		}
+
+		// Set password (hashed in repository)
+		return s.players.UpdatePassword(ctx, UpdatePlayerPasswordCmd{
+			ID:          p.ID,
+			NewPassword: cmd.Password,
+		})
+	})
+}

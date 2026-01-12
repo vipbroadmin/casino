@@ -5,12 +5,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 
 	"players_service/internal/domain/player"
+	playeruc "players_service/internal/usecase/player"
 )
 
 type Repo struct {
@@ -180,6 +184,263 @@ UPDATE players
 		return player.ErrConflict
 	}
 	return nil
+}
+
+// --- admin projections ---
+
+func (r *Repo) List(ctx context.Context, q playeruc.ListPlayersQuery) ([]playeruc.PlayerRow, int64, error) {
+	ex := pickExecutor(ctx, r.db)
+
+	base := `
+SELECT id, login, email, phone,
+       first_name, last_name, '' AS nickname,
+       currency, country_code, is_banned, COALESCE(level, 1) AS level,
+       created_at
+  FROM players
+`
+
+	// simple filtering; extend as needed
+	where := "WHERE 1=1"
+	args := []any{}
+	argPos := 1
+
+	if q.Search != "" {
+		where += " AND (LOWER(email) LIKE LOWER($%d) OR LOWER(login) LIKE LOWER($%d))"
+		pat := "%" + q.Search + "%"
+		where = fmt.Sprintf(where, argPos, argPos+1)
+		args = append(args, pat, pat)
+		argPos += 2
+	}
+	if q.Country != "" {
+		where += fmt.Sprintf(" AND country_code = $%d", argPos)
+		args = append(args, q.Country)
+		argPos++
+	}
+	if q.Currency != "" {
+		where += fmt.Sprintf(" AND currency = $%d", argPos)
+		args = append(args, q.Currency)
+		argPos++
+	}
+
+	orderBy := "created_at DESC"
+	if q.SortBy != "" {
+		// whitelisted columns
+		switch q.SortBy {
+		case "createdAt":
+			orderBy = "created_at"
+		case "login":
+			orderBy = "login"
+		case "email":
+			orderBy = "email"
+		default:
+			orderBy = "created_at"
+		}
+		if strings.ToLower(q.Order) == "asc" {
+			orderBy += " ASC"
+		} else {
+			orderBy += " DESC"
+		}
+	}
+
+	limitOffset := fmt.Sprintf(" ORDER BY %s LIMIT $%d OFFSET $%d", orderBy, argPos, argPos+1)
+	args = append(args, q.Limit, q.Offset)
+
+	rows, err := ex.QueryContext(ctx, base+where+limitOffset, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var res []playeruc.PlayerRow
+	for rows.Next() {
+		var rrow playeruc.PlayerRow
+		var login, email, phone sql.NullString
+		var first, last, nickname, country sql.NullString
+		var currency sql.NullString
+		if err := rows.Scan(
+			&rrow.ID,
+			&login,
+			&email,
+			&phone,
+			&first,
+			&last,
+			&nickname,
+			&currency,
+			&country,
+			&rrow.IsBanned,
+			&rrow.Level,
+			&rrow.CreatedAt,
+		); err != nil {
+			return nil, 0, err
+		}
+		rrow.Login = login.String
+		rrow.Email = email.String
+		rrow.Phone = phone.String
+		rrow.Name = first.String
+		rrow.Surname = last.String
+		rrow.Nickname = nickname.String
+		rrow.Currency = currency.String
+		rrow.Country = country.String
+		res = append(res, rrow)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	// total count (without limit/offset)
+	var total int64
+	countQ := "SELECT COUNT(*) FROM players " + where
+	// Exclude limit and offset from args for count query (they are always last 2)
+	var countArgs []any
+	if len(args) > 2 {
+		countArgs = args[:len(args)-2]
+	}
+	// If no filters, countArgs will be empty which is fine
+	if err := ex.QueryRowContext(ctx, countQ, countArgs...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	return res, total, nil
+}
+
+func (r *Repo) GetMany(ctx context.Context, ids []uuid.UUID) ([]playeruc.PlayerRow, error) {
+	if len(ids) == 0 {
+		return []playeruc.PlayerRow{}, nil
+	}
+	ex := pickExecutor(ctx, r.db)
+
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	q := fmt.Sprintf(`
+SELECT id, login, email, phone,
+       first_name, last_name, '' AS nickname,
+       currency, country_code, is_banned, COALESCE(level, 1) AS level,
+       created_at
+  FROM players
+ WHERE id IN (%s)
+`, strings.Join(placeholders, ","))
+
+	rows, err := ex.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []playeruc.PlayerRow
+	for rows.Next() {
+		var rrow playeruc.PlayerRow
+		var login, email, phone sql.NullString
+		var first, last, nickname, country sql.NullString
+		var currency sql.NullString
+		if err := rows.Scan(
+			&rrow.ID,
+			&login,
+			&email,
+			&phone,
+			&first,
+			&last,
+			&nickname,
+			&currency,
+			&country,
+			&rrow.IsBanned,
+			&rrow.Level,
+			&rrow.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		rrow.Login = login.String
+		rrow.Email = email.String
+		rrow.Phone = phone.String
+		rrow.Name = first.String
+		rrow.Surname = last.String
+		rrow.Nickname = nickname.String
+		rrow.Currency = currency.String
+		rrow.Country = country.String
+		res = append(res, rrow)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (r *Repo) UpdateProfile(ctx context.Context, cmd playeruc.UpdatePlayerProfileCmd) error {
+	ex := pickExecutor(ctx, r.db)
+
+	setParts := []string{}
+	args := []any{}
+	i := 1
+
+	if cmd.Login != nil {
+		setParts = append(setParts, fmt.Sprintf("login=$%d", i))
+		args = append(args, *cmd.Login)
+		i++
+	}
+	if cmd.Email != nil {
+		setParts = append(setParts, fmt.Sprintf("email=$%d", i))
+		args = append(args, *cmd.Email)
+		i++
+	}
+	if cmd.Phone != nil {
+		setParts = append(setParts, fmt.Sprintf("phone=$%d", i))
+		args = append(args, *cmd.Phone)
+		i++
+	}
+	if cmd.Name != nil {
+		setParts = append(setParts, fmt.Sprintf("first_name=$%d", i))
+		args = append(args, *cmd.Name)
+		i++
+	}
+	if cmd.Surname != nil {
+		setParts = append(setParts, fmt.Sprintf("last_name=$%d", i))
+		args = append(args, *cmd.Surname)
+		i++
+	}
+	if cmd.Currency != nil {
+		setParts = append(setParts, fmt.Sprintf("currency=$%d", i))
+		args = append(args, *cmd.Currency)
+		i++
+	}
+	if cmd.Country != nil {
+		setParts = append(setParts, fmt.Sprintf("country_code=$%d", i))
+		args = append(args, *cmd.Country)
+		i++
+	}
+
+	if len(setParts) == 0 {
+		return nil
+	}
+
+	q := fmt.Sprintf("UPDATE players SET %s WHERE id=$%d", strings.Join(setParts, ","), i)
+	args = append(args, cmd.ID)
+
+	_, err := ex.ExecContext(ctx, q, args...)
+	return err
+}
+
+func (r *Repo) UpdatePassword(ctx context.Context, cmd playeruc.UpdatePlayerPasswordCmd) error {
+	ex := pickExecutor(ctx, r.db)
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(cmd.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	const q = `UPDATE players SET password_hash=$2 WHERE id=$1`
+	_, err = ex.ExecContext(ctx, q, cmd.ID, string(hash))
+	return err
+}
+
+func (r *Repo) SetBan(ctx context.Context, id uuid.UUID, banned bool) error {
+	ex := pickExecutor(ctx, r.db)
+	const q = `UPDATE players SET is_banned=$2 WHERE id=$1`
+	_, err := ex.ExecContext(ctx, q, id, banned)
+	return err
 }
 
 func nullStr(s string) sql.NullString {
