@@ -443,6 +443,36 @@ func (r *Repo) SetBan(ctx context.Context, id uuid.UUID, banned bool) error {
 	return err
 }
 
+func (r *Repo) UpdateLevel(ctx context.Context, cmd playeruc.UpdatePlayerLevelCmd) error {
+	ex := pickExecutor(ctx, r.db)
+	const q = `UPDATE players SET level=$2 WHERE id=$1`
+	_, err := ex.ExecContext(ctx, q, cmd.ID, cmd.Level)
+	return err
+}
+
+func (r *Repo) KickPlayers(ctx context.Context, cmd playeruc.KickPlayersCmd) error {
+	ex := pickExecutor(ctx, r.db)
+	now := time.Now()
+	
+	// Build query with IN clause
+	placeholders := make([]string, len(cmd.PlayerIDs))
+	args := make([]any, len(cmd.PlayerIDs)+1)
+	for i, id := range cmd.PlayerIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+	args[len(cmd.PlayerIDs)] = now
+	
+	query := fmt.Sprintf(
+		`UPDATE players SET last_login_at=$%d WHERE id IN (%s)`,
+		len(cmd.PlayerIDs)+1,
+		strings.Join(placeholders, ","),
+	)
+	
+	_, err := ex.ExecContext(ctx, query, args...)
+	return err
+}
+
 func nullStr(s string) sql.NullString {
 	if s == "" {
 		return sql.NullString{Valid: false}

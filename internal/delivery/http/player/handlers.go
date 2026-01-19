@@ -493,6 +493,204 @@ func (h *HTTP) UnbanPlayer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, true)
 }
 
+// UpdateLevel handles PUT /users/players/{id}/update/level
+func (h *HTTP) UpdateLevel(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	var req struct {
+		Level int `json:"level"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_json")
+		return
+	}
+
+	if req.Level < 1 {
+		writeErr(w, http.StatusBadRequest, "validation")
+		return
+	}
+
+	err = h.uc.UpdatePlayerLevel(r.Context(), playeruc.UpdatePlayerLevelCmd{
+		ID:    id,
+		Level: req.Level,
+	})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
+// KickPlayers handles POST /users/players/kick
+func (h *HTTP) KickPlayers(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		PlayerIDs []string `json:"playerIds"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_json")
+		return
+	}
+
+	if len(req.PlayerIDs) == 0 {
+		writeErr(w, http.StatusBadRequest, "validation")
+		return
+	}
+
+	ids := make([]uuid.UUID, len(req.PlayerIDs))
+	for i, idStr := range req.PlayerIDs {
+		id, err := uuid.Parse(idStr)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, "bad_id")
+			return
+		}
+		ids[i] = id
+	}
+
+	err := h.uc.KickPlayers(r.Context(), playeruc.KickPlayersCmd{
+		PlayerIDs: ids,
+	})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
+// GetPlayerDocuments handles GET /users/players/{id}/documents
+func (h *HTTP) GetPlayerDocuments(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	docs, err := h.uc.GetPlayerDocuments(r.Context(), id)
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	items := make([]map[string]any, len(docs))
+	for i, doc := range docs {
+		items[i] = map[string]any{
+			"id":        doc.ID.String(),
+			"playerId":  doc.PlayerID.String(),
+			"type":      doc.Type,
+			"status":    doc.Status.String(),
+			"fileUrl":   doc.FileURL,
+			"metadata":  doc.Metadata,
+			"createdAt": doc.CreatedAt.Format(time.RFC3339),
+			"updatedAt": doc.UpdatedAt.Format(time.RFC3339),
+		}
+	}
+
+	writeJSON(w, http.StatusOK, items)
+}
+
+// UpdateDocumentStatus handles PATCH /users/players/document/{id}
+func (h *HTTP) UpdateDocumentStatus(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_json")
+		return
+	}
+
+	if req.Status == "" {
+		writeErr(w, http.StatusBadRequest, "validation")
+		return
+	}
+
+	err = h.uc.UpdateDocumentStatus(r.Context(), playeruc.UpdateDocumentStatusCmd{
+		ID:     id,
+		Status: req.Status,
+	})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
+// GetPlayerRequisites handles GET /finances/player-requisites-v2/{id}
+func (h *HTTP) GetPlayerRequisites(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	req, err := h.uc.GetPlayerRequisites(r.Context(), id)
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"id":              req.ID.String(),
+		"playerId":        req.PlayerID.String(),
+		"paymentMethodId": req.PaymentMethodID.String(),
+		"formData":        req.FormData,
+		"createdAt":       req.CreatedAt.Format(time.RFC3339),
+		"updatedAt":       req.UpdatedAt.Format(time.RFC3339),
+	})
+}
+
+// UpdatePlayerRequisites handles POST /finances/player-requisites-v2/{id}
+func (h *HTTP) UpdatePlayerRequisites(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id")
+		return
+	}
+
+	var req struct {
+		PaymentMethodID string         `json:"paymentMethodId"`
+		FormData        map[string]any `json:"formData"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_json")
+		return
+	}
+
+	paymentMethodID, err := uuid.Parse(req.PaymentMethodID)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_payment_method_id")
+		return
+	}
+
+	err = h.uc.UpdatePlayerRequisites(r.Context(), playeruc.UpdatePlayerRequisitesCmd{
+		PlayerID:        id,
+		PaymentMethodID: paymentMethodID,
+		FormData:        req.FormData,
+	})
+	if err != nil {
+		encodeDomainErr(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, true)
+}
+
 // toAdminPlayerDTO converts PlayerRow to admin API format
 func toAdminPlayerDTO(row playeruc.PlayerRow) map[string]any {
 	return map[string]any{

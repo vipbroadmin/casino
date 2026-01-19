@@ -20,7 +20,9 @@ type PlayerRepository interface {
 	GetMany(ctx context.Context, ids []uuid.UUID) ([]PlayerRow, error)
 	UpdateProfile(ctx context.Context, cmd UpdatePlayerProfileCmd) error
 	UpdatePassword(ctx context.Context, cmd UpdatePlayerPasswordCmd) error
+	UpdateLevel(ctx context.Context, cmd UpdatePlayerLevelCmd) error
 	SetBan(ctx context.Context, id uuid.UUID, banned bool) error
+	KickPlayers(ctx context.Context, cmd KickPlayersCmd) error
 }
 
 // ListPlayersQuery describes filters for admin list.
@@ -68,6 +70,15 @@ type UpdatePlayerPasswordCmd struct {
 	NewPassword string
 }
 
+type UpdatePlayerLevelCmd struct {
+	ID    uuid.UUID
+	Level int
+}
+
+type KickPlayersCmd struct {
+	PlayerIDs []uuid.UUID
+}
+
 type PlayerStatusEventRepository interface {
 	Append(ctx context.Context, ev player.PlayerStatusEvent) error
 }
@@ -79,4 +90,26 @@ type OutboxRepository interface {
 // UnitOfWork defines transaction boundary (TBD): one usecase == one transaction.
 type UnitOfWork interface {
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+type PlayerDocumentsRepository interface {
+	GetByPlayerID(ctx context.Context, playerID uuid.UUID) ([]*player.Document, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*player.Document, error)
+	UpdateStatus(ctx context.Context, id uuid.UUID, status player.DocumentStatus, now time.Time) error
+}
+
+type UpdateDocumentStatusCmd struct {
+	ID     uuid.UUID
+	Status string
+}
+
+type PlayerRequisitesRepository interface {
+	GetByPlayerID(ctx context.Context, playerID uuid.UUID) (*player.Requisites, error)
+	Upsert(ctx context.Context, req *player.Requisites, now time.Time) error
+}
+
+type UpdatePlayerRequisitesCmd struct {
+	PlayerID        uuid.UUID
+	PaymentMethodID uuid.UUID
+	FormData        map[string]any
 }

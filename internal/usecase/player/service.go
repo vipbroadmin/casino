@@ -13,24 +13,28 @@ import (
 )
 
 type Service struct {
-	uow     UnitOfWork
-	players PlayerRepository
-	events  PlayerStatusEventRepository
-	outbox  OutboxRepository // optional, can be nil
-	clock   ClockReal
+	uow        UnitOfWork
+	players    PlayerRepository
+	events     PlayerStatusEventRepository
+	outbox     OutboxRepository // optional, can be nil
+	clock      ClockReal
+	documents  PlayerDocumentsRepository
+	requisites PlayerRequisitesRepository
 }
 
 type ClockReal interface {
 	Now() time.Time
 }
 
-func New(uow UnitOfWork, players PlayerRepository, events PlayerStatusEventRepository, outbox OutboxRepository, clock ClockReal) *Service {
+func New(uow UnitOfWork, players PlayerRepository, events PlayerStatusEventRepository, outbox OutboxRepository, clock ClockReal, documents PlayerDocumentsRepository, requisites PlayerRequisitesRepository) *Service {
 	return &Service{
-		uow:     uow,
-		players: players,
-		events:  events,
-		outbox:  outbox,
-		clock:   clock,
+		uow:        uow,
+		players:    players,
+		events:     events,
+		outbox:     outbox,
+		clock:      clock,
+		documents:  documents,
+		requisites: requisites,
 	}
 }
 
@@ -234,6 +238,80 @@ func (s *Service) UnbanPlayer(ctx context.Context, id uuid.UUID) error {
 			return err
 		}
 		return s.players.SetBan(ctx, id, false)
+	})
+}
+
+func (s *Service) UpdatePlayerLevel(ctx context.Context, cmd UpdatePlayerLevelCmd) error {
+	if cmd.Level < 1 {
+		return player.ErrValidation
+	}
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := s.players.GetByID(ctx, cmd.ID); err != nil {
+			return err
+		}
+		return s.players.UpdateLevel(ctx, cmd)
+	})
+}
+
+func (s *Service) KickPlayers(ctx context.Context, cmd KickPlayersCmd) error {
+	if len(cmd.PlayerIDs) == 0 {
+		return player.ErrValidation
+	}
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		return s.players.KickPlayers(ctx, cmd)
+	})
+}
+
+func (s *Service) GetPlayerDocuments(ctx context.Context, playerID uuid.UUID) ([]*player.Document, error) {
+	if _, err := s.players.GetByID(ctx, playerID); err != nil {
+		return nil, err
+	}
+	return s.documents.GetByPlayerID(ctx, playerID)
+}
+
+func (s *Service) UpdateDocumentStatus(ctx context.Context, cmd UpdateDocumentStatusCmd) error {
+	status, err := player.ParseDocumentStatus(cmd.Status)
+	if err != nil {
+		return err
+	}
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := s.documents.GetByID(ctx, cmd.ID); err != nil {
+			return err
+		}
+		return s.documents.UpdateStatus(ctx, cmd.ID, status, s.clock.Now())
+	})
+}
+
+func (s *Service) GetPlayerRequisites(ctx context.Context, playerID uuid.UUID) (*player.Requisites, error) {
+	if _, err := s.players.GetByID(ctx, playerID); err != nil {
+		return nil, err
+	}
+	return s.requisites.GetByPlayerID(ctx, playerID)
+}
+
+func (s *Service) UpdatePlayerRequisites(ctx context.Context, cmd UpdatePlayerRequisitesCmd) error {
+	now := s.clock.Now()
+	return s.uow.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := s.players.GetByID(ctx, cmd.PlayerID); err != nil {
+			return err
+		}
+
+		existing, err := s.requisites.GetByPlayerID(ctx, cmd.PlayerID)
+		if err != nil && err != player.ErrNotFound {
+			return err
+		}
+
+		var req *player.Requisites
+		if existing != nil && existing.PaymentMethodID == cmd.PaymentMethodID {
+			// Update existing
+			existing.UpdateFormData(cmd.FormData, now)
+			req = existing
+		} else {
+			// Create new
+			req = player.NewRequisites(cmd.PlayerID, cmd.PaymentMethodID, cmd.FormData, now)
+		}
+
+		return s.requisites.Upsert(ctx, req, now)
 	})
 }
 

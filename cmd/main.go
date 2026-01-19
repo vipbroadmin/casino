@@ -49,6 +49,8 @@ func main() {
 	playerRepo := playerpg.New(db)
 	eventRepo := playerpg.NewEvents(db)
 	outboxRepo := outboxpg.New(db)
+	documentsRepo := playerpg.NewDocuments(db)
+	requisitesRepo := playerpg.NewRequisites(db)
 
 	// ===== usecase =====
 	playerService := playeruc.New(
@@ -57,6 +59,8 @@ func main() {
 		eventRepo,
 		outboxRepo,
 		clock.New(),
+		documentsRepo,
+		requisitesRepo,
 	)
 
 	// ===== http =====
