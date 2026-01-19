@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Admin panele BFF
+  title: Admin panel BFF
   version: 1.0.0
   description: API gateway for players, wallets, withdrawals, and reports services.
 servers:
