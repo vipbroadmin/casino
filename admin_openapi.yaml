@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Symfony DevStack API
+  title: Admin panele BFF
   version: 1.0.0
   description: API gateway for players, wallets, withdrawals, and reports services.
 servers:
