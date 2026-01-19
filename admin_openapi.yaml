@@ -1,0 +1,829 @@
+openapi: 3.0.3
+info:
+  title: Symfony DevStack API
+  version: 1.0.0
+  description: API gateway for players, wallets, withdrawals, and reports services.
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+  - name: Players
+  - name: Wallets
+  - name: Withdrawals
+  - name: Reports
+paths:
+  /users/staffs/login:
+    post:
+      tags: [Auth]
+      summary: Login and get JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: JWT issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+      security: []
+  /users/staffs/logout:
+    delete:
+      tags: [Auth]
+      summary: Logout (stateless)
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: boolean
+  /users/staffs/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/v1/players:
+    get:
+      tags: [Players]
+      summary: List players
+      parameters:
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/search"
+        - $ref: "#/components/parameters/country"
+        - $ref: "#/components/parameters/currency"
+        - $ref: "#/components/parameters/sortBy"
+        - $ref: "#/components/parameters/order"
+      responses:
+        "200":
+          description: Players list
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      tags: [Players]
+      summary: Create player (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlayerRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/v1/players/{id}:
+    get:
+      tags: [Players]
+      summary: Get player by ID
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Player data
+          content:
+            application/json:
+              schema:
+                type: object
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Players]
+      summary: Update player
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlayerRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/players/info:
+    post:
+      tags: [Players]
+      summary: Get players info by ids
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayersInfoRequest"
+      responses:
+        "200":
+          description: Players info
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/players/{id}/documents:
+    get:
+      tags: [Players]
+      summary: Get player documents
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Documents list
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/players/document/{id}:
+    patch:
+      tags: [Players]
+      summary: Update document status
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentStatusRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /api/v1/players/{id}/level:
+    put:
+      tags: [Players]
+      summary: Update player level
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerLevelRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /api/v1/players/{id}/password:
+    put:
+      tags: [Players]
+      summary: Update player password
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePasswordRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /api/v1/players/{id}/ban:
+    put:
+      tags: [Players]
+      summary: Ban player
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Banned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /api/v1/players/{id}/unban:
+    put:
+      tags: [Players]
+      summary: Unban player
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Unbanned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /api/v1/players/kick:
+    post:
+      tags: [Players]
+      summary: Kick players
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KickPlayersRequest"
+      responses:
+        "200":
+          description: Kicked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /api/v1/players/{id}/requisites:
+    get:
+      tags: [Players]
+      summary: Get player requisites
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Requisites
+          content:
+            application/json:
+              schema:
+                type: object
+    post:
+      tags: [Players]
+      summary: Update player requisites
+      parameters:
+        - $ref: "#/components/parameters/id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerRequisitesRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /api/v1/finances/wallets/by-player-id/{playerId}:
+    get:
+      tags: [Wallets]
+      summary: Get wallets by player ID
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Wallets
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/wallets:
+    post:
+      tags: [Wallets]
+      summary: Create wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWalletRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/wallets/deposit:
+    post:
+      tags: [Wallets]
+      summary: Deposit to wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletDepositRequest"
+      responses:
+        "200":
+          description: Wallet updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/wallets/cashout:
+    post:
+      tags: [Wallets]
+      summary: Cashout from wallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletCashoutRequest"
+      responses:
+        "200":
+          description: Cashout created
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/wallets/unlock:
+    post:
+      tags: [Wallets]
+      summary: Unlock wallet funds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletUnlockRequest"
+      responses:
+        "200":
+          description: Wallet updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/withdrawal-requests:
+    post:
+      tags: [Withdrawals]
+      summary: Create withdrawal request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWithdrawalRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/withdrawal-requests/{id}:
+    get:
+      tags: [Withdrawals]
+      summary: Get withdrawal request
+      parameters:
+        - $ref: "#/components/parameters/id"
+      responses:
+        "200":
+          description: Withdrawal request
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/withdrawal-requests/{id}/take:
+    post:
+      tags: [Withdrawals]
+      summary: Take withdrawal request
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/managerId"
+        - $ref: "#/components/parameters/managerRole"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/withdrawal-requests/{id}/request-verification:
+    post:
+      tags: [Withdrawals]
+      summary: Request verification
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/managerId"
+        - $ref: "#/components/parameters/managerRole"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/withdrawal-requests/{id}/approve:
+    post:
+      tags: [Withdrawals]
+      summary: Approve withdrawal
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/managerId"
+        - $ref: "#/components/parameters/managerRole"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/withdrawal-requests/{id}/reject:
+    post:
+      tags: [Withdrawals]
+      summary: Reject withdrawal
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/managerId"
+        - $ref: "#/components/parameters/managerRole"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectWithdrawalRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/withdrawal-requests/{id}/retry:
+    post:
+      tags: [Withdrawals]
+      summary: Retry withdrawal
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/managerId"
+        - $ref: "#/components/parameters/managerRole"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/withdrawal-requests/{id}/return:
+    post:
+      tags: [Withdrawals]
+      summary: Return withdrawal
+      parameters:
+        - $ref: "#/components/parameters/id"
+        - $ref: "#/components/parameters/managerId"
+        - $ref: "#/components/parameters/managerRole"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/finances/reports/transactions:
+    get:
+      tags: [Reports]
+      summary: List transactions
+      parameters:
+        - name: playerId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: walletId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: currency
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: reason
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [created_at, amount, balance_after]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc, ASC, DESC]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: offset
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Transactions list
+          content:
+            application/json:
+              schema:
+                type: object
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+    search:
+      name: search
+      in: query
+      schema:
+        type: string
+    country:
+      name: country
+      in: query
+      schema:
+        type: string
+    currency:
+      name: currency
+      in: query
+      schema:
+        type: string
+    sortBy:
+      name: sortBy
+      in: query
+      schema:
+        type: string
+    order:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+    managerId:
+      name: X-Manager-Id
+      in: header
+      required: true
+      schema:
+        type: string
+    managerRole:
+      name: X-Manager-Role
+      in: header
+      required: true
+      schema:
+        type: string
+  schemas:
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required: [username, password]
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+    UserProfile:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            username:
+              type: string
+            roles:
+              type: array
+              items:
+                type: string
+    CreatePlayerRequest:
+      type: object
+      properties:
+        login:
+          type: string
+        password:
+          type: string
+        country:
+          type: string
+        currency:
+          type: string
+        promoCode:
+          type: string
+      required: [login, password, country, currency]
+    UpdatePlayerRequest:
+      type: object
+      properties:
+        login:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        name:
+          type: string
+        surname:
+          type: string
+        nickname:
+          type: string
+        currency:
+          type: string
+        country:
+          type: string
+    UpdatePasswordRequest:
+      type: object
+      properties:
+        password:
+          type: string
+      required: [password]
+    PlayerLevelRequest:
+      type: object
+      properties:
+        level:
+          type: integer
+      required: [level]
+    PlayersInfoRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required: [ids]
+    DocumentStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+    PlayerRequisitesRequest:
+      type: object
+      properties:
+        paymentMethodId:
+          type: string
+        formData:
+          type: object
+    KickPlayersRequest:
+      type: array
+      items:
+        type: string
+        format: uuid
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+    CreateWalletRequest:
+      type: object
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        currency:
+          type: string
+        type:
+          type: string
+      required: [playerId, currency]
+    WalletDepositRequest:
+      type: object
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        walletId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+      required: [playerId, walletId, amount]
+    WalletCashoutRequest:
+      type: object
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        walletId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+        paymentSystemId:
+          type: string
+      required: [playerId, walletId, amount, paymentSystemId]
+    WalletUnlockRequest:
+      type: object
+      properties:
+        playerId:
+          type: string
+          format: uuid
+        walletId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+      required: [playerId, walletId, amount]
+    CreateWithdrawalRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        currency:
+          type: string
+        amount:
+          type: string
+        paymentSystemId:
+          type: string
+      required: [userId, currency, amount, paymentSystemId]
+    RejectWithdrawalRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+      required: [reason]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
