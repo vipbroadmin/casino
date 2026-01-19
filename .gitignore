@@ -1,3 +1,5 @@
 .gocache
 .idea
 .env
+.md
+admin.yaml
