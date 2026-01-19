@@ -1,6 +1,6 @@
 .gocache
 .idea
 .env
-.md
+*.md
 admin.yaml
 postman_collection.json
