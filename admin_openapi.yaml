@@ -43,6 +43,53 @@ paths:
             application/json:
               schema:
                 type: boolean
+  /users/staffs:
+    get:
+      tags: [Auth]
+      summary: List users
+      parameters:
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsersListResponse"
+    post:
+      tags: [Auth]
+      summary: Create user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStaffUserRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateStaffUserResponse"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /users/staffs/{id}/ban:
+    put:
+      tags: [Auth]
+      summary: Block user
+      parameters:
+        - $ref: "#/components/parameters/idInt"
+      responses:
+        "200":
+          description: Blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /users/staffs/me:
     get:
       tags: [Auth]
@@ -591,6 +638,12 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   parameters:
+    idInt:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
     id:
       name: id
       in: path
@@ -672,6 +725,54 @@ components:
               type: array
               items:
                 type: string
+    UsersListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              username:
+                type: string
+              roles:
+                type: array
+                items:
+                  type: string
+              isBlocked:
+                type: boolean
+        total:
+          type: integer
+    CreateStaffUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+      required: [username, password]
+    CreateStaffUserResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            username:
+              type: string
+            roles:
+              type: array
+              items:
+                type: string
+            isBlocked:
+              type: boolean
     CreatePlayerRequest:
       type: object
       properties:
