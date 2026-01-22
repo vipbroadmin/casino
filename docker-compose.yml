@@ -1,9 +1,6 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: skeleton-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: skeleton
@@ -21,7 +18,6 @@ services:
 
   app:
     build: .
-    container_name: players-service
     restart: unless-stopped
     env_file:
       - .env
