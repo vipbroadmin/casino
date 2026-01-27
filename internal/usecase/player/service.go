@@ -46,6 +46,7 @@ type CreatePlayerCmd struct {
 	BirthDate      time.Time
 	Gender         string
 	CountryCode    string
+	Currency       string
 	Locale         string
 	TimeZone       string
 	RegistrationIP string // text from HTTP
@@ -55,6 +56,11 @@ type CreatePlayerCmd struct {
 
 func (s *Service) CreatePlayer(ctx context.Context, cmd CreatePlayerCmd) (*player.Player, error) {
 	now := s.clock.Now()
+	currency := strings.TrimSpace(cmd.Currency)
+	if currency == "" {
+		return nil, player.ErrValidation
+	}
+	currency = strings.ToUpper(currency)
 
 	addr, err := player.NewAddress(strings.ToUpper(cmd.CountryCode), cmd.Locale, cmd.TimeZone)
 	if err != nil {
@@ -98,7 +104,16 @@ func (s *Service) CreatePlayer(ctx context.Context, cmd CreatePlayerCmd) (*playe
 		if ex != nil {
 			return player.ErrConflict
 		}
-		return s.players.Create(ctx, p)
+		if err := s.players.Create(ctx, p); err != nil {
+			return err
+		}
+		if err := s.players.UpdateProfile(ctx, UpdatePlayerProfileCmd{
+			ID:       p.ID,
+			Currency: &currency,
+		}); err != nil {
+			return err
+		}
+		return s.enqueueWalletCreate(ctx, p.ID, currency, now)
 	})
 	if err != nil {
 		return nil, err
@@ -325,6 +340,11 @@ type CreatePlayerAdminCmd struct {
 
 func (s *Service) CreatePlayerAdmin(ctx context.Context, cmd CreatePlayerAdminCmd) error {
 	now := s.clock.Now()
+	currency := strings.TrimSpace(cmd.Currency)
+	if currency == "" {
+		return player.ErrValidation
+	}
+	currency = strings.ToUpper(currency)
 
 	addr, err := player.NewAddress(strings.ToUpper(cmd.Country), "en", "UTC")
 	if err != nil {
@@ -351,16 +371,42 @@ func (s *Service) CreatePlayerAdmin(ctx context.Context, cmd CreatePlayerAdminCm
 		if err := s.players.UpdateProfile(ctx, UpdatePlayerProfileCmd{
 			ID:       p.ID,
 			Login:    &cmd.Login,
-			Currency: &cmd.Currency,
+			Currency: &currency,
 			Country:  &cmd.Country,
 		}); err != nil {
 			return err
 		}
 
 		// Set password (hashed in repository)
-		return s.players.UpdatePassword(ctx, UpdatePlayerPasswordCmd{
+		if err := s.players.UpdatePassword(ctx, UpdatePlayerPasswordCmd{
 			ID:          p.ID,
 			NewPassword: cmd.Password,
-		})
+		}); err != nil {
+			return err
+		}
+
+		return s.enqueueWalletCreate(ctx, p.ID, currency, now)
 	})
+}
+
+func (s *Service) enqueueWalletCreate(ctx context.Context, playerID uuid.UUID, currency string, now time.Time) error {
+	if s.outbox == nil {
+		return errors.New("outbox not configured")
+	}
+	msg, err := NewOutboxMessage(
+		"player",
+		playerID,
+		WalletCreateOutboxType,
+		playerID.String(),
+		WalletCreatePayload{
+			PlayerID: playerID.String(),
+			Currency: currency,
+			Type:     "real",
+		},
+		now,
+	)
+	if err != nil {
+		return err
+	}
+	return s.outbox.Enqueue(ctx, msg)
 }

@@ -32,6 +32,7 @@ type createReq struct {
 	BirthDate      string         `json:"birth_date"` // YYYY-MM-DD
 	Gender         string         `json:"gender"`     // none|male|female|other
 	CountryCode    string         `json:"country_code"`
+	Currency       string         `json:"currency"`
 	Locale         string         `json:"locale"`
 	TimeZone       string         `json:"time_zone"`
 	RegistrationIP string         `json:"registration_ip"`
@@ -74,6 +75,7 @@ func (h *HTTP) CreatePlayer(w http.ResponseWriter, r *http.Request) {
 		BirthDate:      birth,
 		Gender:         req.Gender,
 		CountryCode:    req.CountryCode,
+		Currency:       req.Currency,
 		Locale:         req.Locale,
 		TimeZone:       req.TimeZone,
 		RegistrationIP: req.RegistrationIP,

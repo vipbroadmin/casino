@@ -17,6 +17,14 @@ type OutboxMessage struct {
 	CreatedAt   time.Time
 }
 
+const WalletCreateOutboxType = "wallet.create"
+
+type WalletCreatePayload struct {
+	PlayerID string `json:"player_id"`
+	Currency string `json:"currency"`
+	Type     string `json:"type"`
+}
+
 func NewOutboxMessage(aggregate string, aggregateID uuid.UUID, typ string, key string, payload any, at time.Time) (OutboxMessage, error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {

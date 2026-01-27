@@ -17,6 +17,8 @@ import (
 	"players_service/internal/infra/clock"
 	"players_service/internal/infra/migrations"
 	"players_service/internal/infra/postgres"
+	"players_service/internal/integration"
+	"players_service/internal/publisher"
 	outboxpg "players_service/internal/repository/outbox/postgres"
 	playerpg "players_service/internal/repository/player/postgres"
 	playeruc "players_service/internal/usecase/player"
@@ -63,6 +65,15 @@ func main() {
 		requisitesRepo,
 	)
 
+	walletsClient := integration.NewWalletsClient(cfg.WalletsServiceURL)
+	outboxPublisher := publisher.NewWalletsOutboxPublisher(outboxRepo, walletsClient, publisher.WalletsOutboxConfig{
+		PollInterval: cfg.OutboxPollInterval,
+		BatchSize:    cfg.OutboxBatchSize,
+	})
+	workerCtx, cancelWorker := context.WithCancel(context.Background())
+	defer cancelWorker()
+	go outboxPublisher.Run(workerCtx)
+
 	// ===== http =====
 	handler := playerhttp.New(playerService)
 	router := playerhttp.Routes(handler)
@@ -86,6 +97,7 @@ func main() {
 	<-stop
 
 	log.Println("shutting down...")
+	cancelWorker()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
