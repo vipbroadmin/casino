@@ -264,7 +264,7 @@ func (h *HTTP) ListPlayers(w http.ResponseWriter, r *http.Request) {
 	sortBy := r.URL.Query().Get("sortBy")
 	order := r.URL.Query().Get("order")
 
-	rows, total, err := h.uc.ListPlayers(r.Context(), playeruc.ListPlayersQuery{
+	query := playeruc.ListPlayersQuery{
 		Offset:   offset,
 		Limit:    limit,
 		Search:   search,
@@ -272,7 +272,15 @@ func (h *HTTP) ListPlayers(w http.ResponseWriter, r *http.Request) {
 		Currency: currency,
 		SortBy:   sortBy,
 		Order:    order,
-	})
+	}
+	if search != "" {
+		if id, err := uuid.Parse(search); err == nil {
+			query.SearchPlayerID = &id
+			query.Search = ""
+		}
+	}
+
+	rows, total, err := h.uc.ListPlayers(r.Context(), query)
 	if err != nil {
 		encodeDomainErr(w, err)
 		return

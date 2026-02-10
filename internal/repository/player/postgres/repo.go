@@ -204,7 +204,11 @@ SELECT id, login, email, phone,
 	args := []any{}
 	argPos := 1
 
-	if q.Search != "" {
+	if q.SearchPlayerID != nil {
+		where += fmt.Sprintf(" AND id = $%d", argPos)
+		args = append(args, *q.SearchPlayerID)
+		argPos++
+	} else if q.Search != "" {
 		where += " AND (LOWER(email) LIKE LOWER($%d) OR LOWER(login) LIKE LOWER($%d))"
 		pat := "%" + q.Search + "%"
 		where = fmt.Sprintf(where, argPos, argPos+1)
@@ -453,7 +457,7 @@ func (r *Repo) UpdateLevel(ctx context.Context, cmd playeruc.UpdatePlayerLevelCm
 func (r *Repo) KickPlayers(ctx context.Context, cmd playeruc.KickPlayersCmd) error {
 	ex := pickExecutor(ctx, r.db)
 	now := time.Now()
-	
+
 	// Build query with IN clause
 	placeholders := make([]string, len(cmd.PlayerIDs))
 	args := make([]any, len(cmd.PlayerIDs)+1)
@@ -462,13 +466,13 @@ func (r *Repo) KickPlayers(ctx context.Context, cmd playeruc.KickPlayersCmd) err
 		args[i] = id
 	}
 	args[len(cmd.PlayerIDs)] = now
-	
+
 	query := fmt.Sprintf(
 		`UPDATE players SET last_login_at=$%d WHERE id IN (%s)`,
 		len(cmd.PlayerIDs)+1,
 		strings.Join(placeholders, ","),
 	)
-	
+
 	_, err := ex.ExecContext(ctx, query, args...)
 	return err
 }

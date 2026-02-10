@@ -30,11 +30,12 @@ type ListPlayersQuery struct {
 	Offset int
 	Limit  int
 
-	Search   string
-	Country  string
-	Currency string
-	SortBy   string
-	Order    string // asc|desc
+	Search         string     // text search (email/login) when SearchPlayerID is nil
+	SearchPlayerID *uuid.UUID // when set, filter by player id only (ignore Search)
+	Country        string
+	Currency       string
+	SortBy         string
+	Order          string // asc|desc
 }
 
 // PlayerRow is a lightweight admin projection.
